@@ -20,6 +20,7 @@ works/
 *.sqlite
 *.sqlite3
 .uv-cache/
+Agent系统通用设计模式.md
 
 # 编辑器 / 系统
 .DS_Store
