@@ -1,0 +1,28 @@
+# 环境与密钥
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.pytest-tmp/
+pytest-cache-files-*/
+.probe_*/
+tmp_test_*/
+.mypy_cache/
+.ruff_cache/
+
+# 运行时产物
+works/
+*.sqlite
+*.sqlite3
+.uv-cache/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

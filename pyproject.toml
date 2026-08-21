@@ -1,0 +1,22 @@
+[project]
+name = "literary-agent"
+version = "0.1.0"
+description = "LangGraph + DeepSeek 中短篇文学作品解读 Agent 系统"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "langgraph",
+    "langchain-core",
+    "langchain-openai",
+    "pydantic",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
