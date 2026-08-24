@@ -1,0 +1,385 @@
+/* 开场动画样式 */
+
+.intro-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* 深蓝黑 → 暗紫的夜色背景 */
+  background: radial-gradient(120% 100% at 50% 38%, #1c1233 0%, #120c24 45%, #0a0716 100%);
+}
+
+.intro-stage {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.intro-stage svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- 羽毛笔 ---------- */
+
+/* idle 时可点击 + 悬停微亮 */
+/* ---------- 动态星空背景（提取自团队前端页面并按本动画降噪） ---------- */
+
+.star-nebula {
+  pointer-events: none;
+}
+
+.star-dot--far {
+  opacity: 0.34;
+  animation: star-far-twinkle 6s ease-in-out infinite;
+}
+
+.star-dot--mid {
+  opacity: 0.72;
+  animation: star-mid-twinkle 4s ease-in-out infinite;
+}
+
+.star-spike {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.32;
+  animation: star-spike-flash 6s ease-in-out infinite;
+}
+
+@keyframes star-far-twinkle {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.56;
+  }
+}
+
+@keyframes star-mid-twinkle {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+  48% {
+    opacity: 0.94;
+  }
+}
+
+@keyframes star-spike-flash {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  5% {
+    opacity: 0.96;
+  }
+  12% {
+    opacity: 0.42;
+  }
+  18% {
+    opacity: 0.18;
+  }
+}
+
+.shooting-star {
+  opacity: 0;
+  animation: shooting-star-cross 9.5s linear infinite;
+}
+
+.shooting-star--one {
+  animation-delay: 1.2s;
+}
+
+.shooting-star--two {
+  animation-delay: 5.8s;
+}
+
+@keyframes shooting-star-cross {
+  0%,
+  2% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  5% {
+    opacity: 0.9;
+    transform: translate(65px, 36px);
+  }
+  20% {
+    opacity: 0.78;
+    transform: translate(390px, 216px);
+  }
+  25%,
+  100% {
+    opacity: 0;
+    transform: translate(510px, 282px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-dot--far,
+  .star-dot--mid,
+  .star-spike,
+  .shooting-star {
+    animation: none !important;
+  }
+
+  .star-dot--far {
+    opacity: 0.34;
+  }
+
+  .star-dot--mid {
+    opacity: 0.62;
+  }
+
+  .star-spike {
+    opacity: 0.38;
+  }
+}
+
+.quill-hit {
+  cursor: pointer;
+}
+.quill-hit:hover .quill-art {
+  filter: brightness(1.18);
+}
+
+/* idle 时的呼吸漂浮（transform-box 让动画围绕羽毛自身中心） */
+.quill-bob {
+  transform-box: fill-box;
+  transform-origin: 30% 70%;
+  animation: quill-bob 3.6s ease-in-out infinite;
+}
+@keyframes quill-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1.6deg);
+  }
+}
+
+/* ---------- 提示文字（绘本风：可读性提升） ---------- */
+
+.intro-hint {
+  fill: #c9b3e8;
+  font-size: 21px;
+  letter-spacing: 8px;
+  font-family: inherit;
+  user-select: none;
+}
+.hint-pulse {
+  animation: hint-pulse 2.8s ease-in-out infinite;
+}
+@keyframes hint-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------- 书页边缘流动的魔法能量线 ---------- */
+
+/*
+ * 最后一笔落下后，整套结构线与装饰线短暂充能。
+ * 随后的圆形遮罩会让这些线从书心向外融入成品书。
+ */
+.book-lines--charged {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: book-lines-charge 0.52s ease-out both;
+}
+@keyframes book-lines-charge {
+  0% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 rgba(226, 180, 88, 0));
+  }
+  48% {
+    opacity: 1;
+    filter: drop-shadow(0 0 9px rgba(226, 180, 88, 0.85))
+      drop-shadow(0 0 14px rgba(112, 205, 210, 0.45));
+  }
+  100% {
+    opacity: 0.94;
+    filter: drop-shadow(0 0 3px rgba(226, 180, 88, 0.25));
+  }
+}
+
+.magic-flow {
+  stroke-dasharray: 6 30;
+  stroke-opacity: 0.75;
+  mix-blend-mode: screen;
+  animation: magic-flow 3.5s linear infinite;
+}
+.magic-flow--alt {
+  animation-duration: 4.2s;
+  animation-direction: reverse;
+}
+@keyframes magic-flow {
+  to {
+    stroke-dashoffset: -144; /* 36(虚线周期) × 4，保证无缝循环 */
+  }
+}
+
+/* ---------- 入书面纱与产品名 ---------- */
+
+.enter-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  /* 半透明暖光只负责托起标题，书本和深紫桌布仍保持可见。 */
+  background: radial-gradient(
+    closest-side at 50% 53%,
+    rgba(255, 246, 220, 0.24) 0%,
+    rgba(235, 216, 174, 0.13) 62%,
+    rgba(211, 189, 140, 0.05) 100%
+  );
+}
+
+.enter-title {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  pointer-events: none;
+  color: #3d243d;
+  text-align: center;
+}
+.enter-title h1 {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.4vw, 22px);
+  margin: 0;
+  color: #4c2c52;
+  font-family: '华文新魏', 'STXinwei', '华文行楷', 'STXingkai', '华文楷体', 'STKaiti', 'KaiTi', serif;
+  font-size: clamp(38px, 4.35vw, 64px);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: 0.12em;
+  -webkit-text-stroke: 0.45px rgba(174, 128, 54, 0.72);
+  paint-order: stroke fill;
+  text-shadow:
+    0 1px 0 rgba(255, 247, 215, 0.96),
+    0 3px 8px rgba(73, 39, 75, 0.18),
+    0 0 20px rgba(199, 155, 76, 0.1);
+}
+.enter-title h1::before,
+.enter-title h1::after {
+  content: '✦';
+  color: #b58a4d;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.3em;
+  font-weight: 400;
+  letter-spacing: 0;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0 9px rgba(190, 141, 64, 0.36);
+}
+.enter-title .english-title {
+  color: #6a4b6a;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(10px, 0.9vw, 14px);
+  letter-spacing: 0.18em;
+}
+.enter-title p {
+  margin-top: 3px;
+  font-size: clamp(14px, 1.25vw, 18px);
+  letter-spacing: 0.2em;
+  color: #5c4058;
+}
+
+/* ---------- 标题停留与进入提示 ---------- */
+
+.press-start {
+  position: absolute;
+  top: 66%;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  width: max-content;
+  margin: 0 auto;
+  padding: 9px 22px;
+  border: 1px solid rgba(87, 55, 82, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 248, 224, 0.34);
+  color: #5b3d59;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(12px, 1vw, 15px);
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  box-shadow: 0 3px 18px rgba(67, 39, 63, 0.08);
+  backdrop-filter: blur(2px);
+}
+.press-start:hover {
+  border-color: rgba(87, 55, 82, 0.62);
+  background: rgba(255, 248, 224, 0.52);
+}
+.press-start span {
+  display: block;
+  animation: press-start-pulse 2s ease-in-out infinite;
+}
+@keyframes press-start-pulse {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 深度推进末尾的书页色遮罩，负责把动画平滑交给主页面。 */
+.dive-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 52%, #fff8e7 0%, #f3e5c5 68%, #e5d1a6 100%);
+}
+
+/* ---------- 跳过按钮（绘本风：对比度提升，可见性增强） ---------- */
+
+.skip-btn {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  z-index: 10;
+  background: transparent;
+  border: 1px solid rgba(220, 198, 150, 0.5);
+  color: #d4c29a;
+  padding: 6px 20px;
+  border-radius: 999px;
+  letter-spacing: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+}
+.skip-btn:hover {
+  border-color: rgba(230, 210, 170, 0.85);
+  color: #f0e4c0;
+  background: rgba(230, 210, 170, 0.12);
+}
+.skip-btn--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- 减少动画 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .quill-bob,
+  .hint-pulse,
+  .book-lines--charged,
+  .press-start span,
+  .magic-flow {
+    animation: none;
+  }
+}
