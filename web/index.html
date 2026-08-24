@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night" data-night="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>覆写：故事新编 · OVERWRITING</title>
+<meta name="description" content="西幻风沉浸式读书批注：以回响、诘问、星链、续章四类铭文回应原作，最终生成署有原作者与你的名字的个人版本。">
+
+<!-- 站点图标内联，避免浏览器去请求 /favicon.ico 在控制台留下 404（录屏时控制台要干净）-->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23090D18'/%3E%3Ccircle cx='16' cy='16' r='9.5' fill='none' stroke='%23C7A45A' stroke-width='1.4'/%3E%3Cpath d='M16 7.5v17M7.5 16h17' stroke='%237A5832' stroke-width='1'/%3E%3C/svg%3E">
+
+<!-- 全部本地资源，断网可用（§5.6）；不引任何 CDN 与外部字体 -->
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/intro.css">
+<link rel="stylesheet" href="assets/css/library.css">
+<link rel="stylesheet" href="assets/css/reader.css">
+<link rel="stylesheet" href="assets/css/finale.css">
+<link rel="stylesheet" href="assets/css/ceremony.css">
+</head>
+<body>
+
+<a class="skip" href="#main">跳到主要内容</a>
+
+<!-- 共享 SVG 渐变与滤镜，整站只注入一次 -->
+<div id="defs" aria-hidden="true"></div>
+
+<!-- 演示模式标记：?demo=1 时出现，提醒演示者当前用的是独立的演示数据 -->
+<div id="demoFlag" class="demo-flag" hidden>
+  演示模式 · 数据与正常使用分开存储 · 发布仍需真实点击
+</div>
+
+<main id="main" tabindex="-1">
+  <section id="view-intro"    class="view" aria-label="开场"></section>
+  <section id="view-signin"   class="view" aria-label="首次署名"></section>
+  <section id="view-library"  class="view" aria-label="秘典书库"></section>
+  <section id="view-reader"   class="view" aria-label="阅读器"></section>
+  <section id="view-finale"   class="view" aria-label="读者终章"></section>
+  <section id="view-ceremony" class="view" aria-label="契名仪式"></section>
+  <section id="view-opus"     class="view" aria-label="个人秘典"></section>
+</main>
+
+<div class="toast-wrap" id="toasts" aria-live="polite"></div>
+
+<script src="assets/js/store.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/svg.js"></script>
+<script src="assets/js/intro.js"></script>
+<script src="assets/js/library.js"></script>
+<script src="assets/js/reader.js"></script>
+<script src="assets/js/finale.js"></script>
+<script src="assets/js/ceremony.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
