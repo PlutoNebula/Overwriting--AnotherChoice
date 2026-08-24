@@ -1,0 +1,231 @@
+/* ==========================================================================
+   library.css — 秘典书库（P02 实测：深蔚蓝 86% / 暮紫 11% / 羊皮纸 1%）
+   全页无亮带。书卡 = 深色皮革 + 旧铜描边 + 暮金文字，靠边框和微光区分。
+   ========================================================================== */
+
+#view-library{overflow:hidden}
+.lib{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  padding:var(--s6) var(--s8) 0;
+}
+
+/* 左右边缘的亮元素（实测亮元素只在最左 / 最右边缘）*/
+.lib::before,.lib::after{
+  content:"";position:absolute;top:14%;bottom:14%;width:1px;pointer-events:none;
+  background:linear-gradient(180deg,transparent,var(--ln-gold) 30%,var(--ln-gold) 70%,transparent);
+  opacity:.5;
+}
+.lib::before{left:var(--s5)}
+.lib::after{right:var(--s5)}
+
+/* ---------- 顶栏 ---------- */
+.lib-top{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  gap:var(--s6);padding-bottom:var(--s5);flex:none;
+}
+.lib-brand .en{
+  font-family:var(--f-display);font-size:var(--fs-lg);
+  letter-spacing:.42em;text-transform:uppercase;
+}
+.lib-brand .cn{
+  margin-top:6px;font-size:var(--fs-mono);letter-spacing:.3em;color:var(--tx-low);
+}
+.lib-tools{display:flex;align-items:center;gap:var(--s2)}
+.lib-tools .rule-v{width:1px;height:22px;background:var(--ln-copper-soft);margin:0 var(--s2)}
+
+/* 读者身份：署名 + 覆写版本数 */
+.lib-me{
+  display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s2) var(--s4);border:1px solid var(--ln-copper-soft);
+  border-radius:999px;background:rgba(5,7,14,.5);
+}
+.lib-me .av{
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:var(--f-display);font-size:var(--fs-xs);color:var(--on-accent);
+  background:linear-gradient(178deg,#E2CB92,var(--dusk-gold) 55%,#9C7C3C);
+}
+.lib-me .nm{font-size:var(--fs-xs);letter-spacing:.1em}
+.lib-me .ct{font-size:var(--fs-mono);color:var(--tx-low)}
+
+/* ---------- 主区滚动容器 ---------- */
+.lib-scroll{flex:1;min-height:0;overflow-y:auto;padding:var(--s2) 0 var(--s8)}
+
+/* ---------- 继续阅读（首屏突出，§5.2）---------- */
+.resume{
+  position:relative;display:grid;grid-template-columns:132px 1fr auto;
+  gap:var(--s6);align-items:center;
+  padding:var(--s5) var(--s6);margin-bottom:var(--s7);
+  border-radius:var(--r-xl);overflow:hidden;
+  border:1px solid var(--ln-copper);
+  box-shadow:var(--sh-lift);
+}
+.resume::before{                    /* 暮紫氛围：书库里暮紫占 11%，集中在这里 */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(560px 220px at 8% 50%,rgba(36,23,53,.9),transparent 70%),
+    radial-gradient(420px 200px at 88% 120%,rgba(199,164,90,.09),transparent 70%);
+}
+.resume>*{position:relative;z-index:1}
+.resume .mini{width:132px;height:182px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--sh-card)}
+.resume .mini svg{width:100%;height:100%;display:block}
+.resume .meta{min-width:0}
+.resume .eyebrow{font-size:var(--fs-mono);letter-spacing:.32em;color:var(--accent-tx);text-transform:uppercase}
+.resume h2{margin:var(--s3) 0 var(--s2);font-size:var(--fs-2xl)}
+.resume .by{font-size:var(--fs-sm);color:var(--tx-mid)}
+.resume .quote{
+  margin-top:var(--s4);font-size:var(--fs-sm);line-height:1.9;color:var(--tx-low);
+  max-width:56ch;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  border-left:1px solid var(--ln-copper-soft);padding-left:var(--s4);
+}
+.resume .prog{margin-top:var(--s5);max-width:420px}
+.resume .prog .row{
+  display:flex;justify-content:space-between;font-size:var(--fs-mono);
+  color:var(--tx-low);margin-bottom:6px;letter-spacing:.1em;
+}
+.resume .act{display:flex;flex-direction:column;gap:var(--s3);align-items:stretch;min-width:200px}
+
+/* ---------- 区段标题 ---------- */
+.sec-head{
+  display:flex;align-items:center;gap:var(--s4);margin:0 0 var(--s5);
+}
+.sec-head h3{font-size:var(--fs-md);letter-spacing:.26em;color:var(--tx-mid);font-weight:400;white-space:nowrap}
+.sec-head .line{flex:1;height:1px;background:linear-gradient(90deg,var(--ln-copper),transparent)}
+.sec-head .n{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.14em}
+
+/* ---------- 书卡网格 ---------- */
+.shelf{
+  display:grid;gap:var(--s6);
+  grid-template-columns:repeat(auto-fill,minmax(226px,1fr));
+}
+
+.bcard{
+  position:relative;display:flex;flex-direction:column;
+  border-radius:var(--r-lg);overflow:hidden;cursor:pointer;text-align:left;
+  border:1px solid var(--ln-copper-soft);
+  /* 书卡是「深色皮革 + 旧铜描边 + 暮金文字」（§9 硬规则 2），不是紫色块。
+     四张卡加起来占屏幕 22%，用暮紫兜底会把整页判成紫。走皮革档。 */
+  background:linear-gradient(160deg,rgba(34,27,23,.75),rgba(9,13,24,.86));
+  box-shadow:var(--sh-card);
+  transition:transform var(--t-enter) var(--ease),border-color var(--t-enter) var(--ease),
+             box-shadow var(--t-enter) var(--ease);
+}
+.bcard:hover{transform:translateY(-5px);border-color:var(--ln-gold);box-shadow:var(--sh-lift),var(--glow-gold)}
+.bcard:hover .bcard-cover svg{transform:scale(1.03)}
+.bcard-cover{position:relative;aspect-ratio:3/4.1;overflow:hidden;background:var(--leather-1)}
+.bcard-cover svg{width:100%;height:100%;display:block;transition:transform var(--t-slow) var(--ease)}
+.bcard-cover::after{                /* 顶光，压住卡片下缘 */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 52%,rgba(5,7,14,.85));
+}
+.bcard-badge{position:absolute;left:var(--s3);top:var(--s3);z-index:2}
+.bcard-body{padding:var(--s4) var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
+.bcard-body h4{font-size:var(--fs-lg);color:var(--accent-tx);letter-spacing:.04em}
+.bcard-body .by{font-size:var(--fs-xs);color:var(--tx-low)}
+.bcard-body .ver{
+  margin-top:var(--s2);font-size:var(--fs-mono);letter-spacing:.08em;
+  color:var(--tx-mid);display:flex;align-items:center;gap:6px;
+}
+.bcard-body .bar{margin-top:var(--s3)}
+.bcard-foot{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.1em;margin-top:var(--s2);
+}
+
+/* 未解封：降饱和 + 虚线，点击给友好提示不是死链 */
+.bcard.is-locked{cursor:not-allowed}
+.bcard.is-locked .bcard-cover svg{filter:grayscale(.62) brightness(.6)}
+.bcard.is-locked:hover{transform:none;border-color:var(--ln-copper-soft);box-shadow:var(--sh-card)}
+.bcard.is-locked .bcard-body h4{color:var(--tx-mid)}
+.bcard-lock{
+  position:absolute;inset:0;display:grid;place-items:center;z-index:2;
+  background:rgba(5,7,14,.5);
+}
+.bcard-lock svg{width:30px;height:30px;color:var(--tx-low);opacity:.75}
+
+/* 已完成契名的书：封面留名（§14.6 刷新后仍存在）*/
+.bcard.is-signed{border-color:var(--ln-gold)}
+.bcard.is-signed .bcard-cover::before{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(70% 50% at 50% 100%,rgba(199,164,90,.22),transparent 70%);
+}
+.bcard-sig{
+  position:absolute;left:0;right:0;bottom:var(--s3);z-index:2;text-align:center;
+  font-family:var(--f-display);font-size:var(--fs-xs);letter-spacing:.14em;
+  color:var(--dusk-gold);text-shadow:0 0 12px rgba(9,13,24,.9);
+}
+
+/* 导入卡：虚线，明确是入口不是书 */
+.bcard--add{
+  cursor:pointer;border-style:dashed;background:rgba(9,13,24,.4);
+  display:grid;place-items:center;min-height:280px;padding:var(--s6);
+}
+.bcard--add:hover{border-color:var(--teal-magic);box-shadow:none;transform:translateY(-3px)}
+.bcard--add .in{display:flex;flex-direction:column;align-items:center;gap:var(--s3);text-align:center}
+.bcard--add svg{width:34px;height:34px;color:var(--teal-magic);opacity:.8}
+.bcard--add .t{font-size:var(--fs-sm);color:var(--tx-mid);letter-spacing:.1em}
+.bcard--add .d{font-size:var(--fs-mono);color:var(--tx-faint);line-height:1.8;max-width:22ch}
+
+/* ---------- 底部四个入口（§4）---------- */
+.lib-foot{
+  flex:none;display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s4) 0;border-top:1px solid var(--ln-hair);
+  background:linear-gradient(180deg,transparent,rgba(5,7,14,.6));
+}
+.lib-foot .grow{flex:1}
+.lib-foot .note{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.1em}
+
+/* 「恢复示例藏书」与「重置示例书进度」视觉分开（§5.2 强调语义不同）*/
+.entry-pair{
+  display:flex;align-items:center;gap:var(--s2);
+  padding:var(--s1) var(--s2);border-radius:var(--r-md);
+  border:1px dashed var(--ln-copper-soft);
+}
+.entry-pair .lb{
+  font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.14em;
+  padding-left:var(--s2);white-space:nowrap;
+}
+
+/* ---------- 设置抽屉 ---------- */
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);z-index:var(--z-modal);
+  display:flex;flex-direction:column;
+  border-left:1px solid var(--ln-copper);
+  background:linear-gradient(200deg,rgba(36,23,53,.7),rgba(9,13,24,.98));
+  box-shadow:-30px 0 70px -30px rgba(0,0,0,.9);
+  animation:slideIn var(--t-enter) var(--ease-out) both;
+}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.drawer-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--s5) var(--s6);border-bottom:1px solid var(--ln-hair);flex:none;
+}
+.drawer-head h3{font-size:var(--fs-lg)}
+.drawer-body{flex:1;overflow-y:auto;padding:var(--s6);display:flex;flex-direction:column;gap:var(--s7)}
+.drawer-sec{display:flex;flex-direction:column;gap:var(--s4)}
+.drawer-sec>.hd{font-size:var(--fs-mono);letter-spacing:.28em;color:var(--tx-low);text-transform:uppercase}
+.opt-row{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  padding:var(--s3) 0;border-bottom:1px solid var(--ln-hair);
+}
+.opt-row:last-child{border-bottom:0}
+.opt-row .lb{font-size:var(--fs-sm)}
+.opt-row .ds{font-size:var(--fs-mono);color:var(--tx-faint);margin-top:3px;line-height:1.7}
+
+/* 分段选择器（主题、字号等共用）*/
+.seg{display:inline-flex;padding:2px;border:1px solid var(--ln-copper-soft);border-radius:var(--r-md);gap:2px}
+.seg button{
+  padding:5px 12px;font-family:var(--f-serif);font-size:var(--fs-xs);letter-spacing:.08em;
+  background:transparent;border:0;border-radius:3px;color:var(--tx-low);cursor:pointer;
+  transition:color var(--t-fast) var(--ease),background-color var(--t-fast) var(--ease);
+}
+.seg button:hover{color:var(--tx-hi)}
+.seg button[aria-pressed="true"]{background:rgba(199,164,90,.16);color:var(--accent-tx)}
+
+/* Key 输入默认掩码（§11：不要在视频里露出真实 Key）*/
+.key-row{display:flex;gap:var(--s2)}
+.key-row .input{font-family:var(--f-display);letter-spacing:.14em}
+.ai-note{
+  padding:var(--s3) var(--s4);border-radius:var(--r-md);
+  border:1px solid rgba(83,167,184,.3);background:rgba(83,167,184,.07);
+  font-size:var(--fs-mono);line-height:1.8;color:var(--tx-mid);
+}

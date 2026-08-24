@@ -1,0 +1,248 @@
+/* ==========================================================================
+   ceremony.css — 契名仪式 + 个人秘典
+   P05 实测：深蔚蓝 81% / 暮紫 17%（全场最高）/ 羊皮纸 0.7%。全页无亮带。
+   封面居中且不大，是深色皮革封面。
+   画面整体必须是暗的 —— 金色署名之所以是高潮，正因为四周足够暗。
+   ========================================================================== */
+
+#view-ceremony{overflow:hidden;background:var(--ink-abyss)}
+
+.cm{position:absolute;inset:0;display:grid;place-items:center}
+
+/* 暮紫氛围层：这一页占比全场最高，但仍是渐变不是平铺 */
+.cm-aura{
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(760px 620px at 50% 46%,rgba(36,23,53,.96),transparent 66%),
+    radial-gradient(1200px 700px at 50% 116%,rgba(36,23,53,.6),transparent 62%),
+    radial-gradient(420px 360px at 50% 44%,rgba(199,164,90,.07),transparent 70%);
+}
+.cm-stars{position:absolute;inset:0;z-index:0;pointer-events:none}
+.cm-stars svg{width:100%;height:100%;display:block}
+
+/* ---------- 五步进度指示（顺序固定，评审能看懂在第几步）---------- */
+.cm-steps{
+  position:absolute;left:50%;top:var(--s7);translate:-50% 0;z-index:3;
+  display:flex;align-items:center;gap:var(--s4);
+}
+.cm-steps .st{display:flex;align-items:center;gap:var(--s2);opacity:.3;transition:opacity var(--t-slow) var(--ease)}
+.cm-steps .st .n{
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+  border:1px solid var(--ln-copper);font-family:var(--f-display);
+  font-size:var(--fs-2xs);color:var(--tx-low);
+}
+.cm-steps .st .lb{font-size:var(--fs-mono);letter-spacing:.18em;color:var(--tx-low);white-space:nowrap}
+.cm-steps .st.is-on{opacity:1}
+.cm-steps .st.is-on .n{border-color:var(--dusk-gold);color:var(--on-accent);background:var(--dusk-gold)}
+.cm-steps .st.is-on .lb{color:var(--accent-tx)}
+.cm-steps .sp{width:26px;height:1px;background:var(--ln-copper-soft)}
+
+/* ---------- 封面（深色皮革，居中且不大）---------- */
+.cm-stage{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:var(--s7)}
+
+.cover{
+  position:relative;width:340px;aspect-ratio:3/4.3;border-radius:4px 8px 8px 4px;
+  overflow:hidden;flex:none;
+  border:1px solid var(--ln-copper);
+  box-shadow:0 50px 100px -34px rgba(0,0,0,.98),
+             inset 0 1px 0 rgba(216,197,154,.1);
+  opacity:0;transform:translateY(26px) scale(.965);
+}
+/* 步骤 1：封面浮现 */
+.cm[data-step="1"] .cover,.cm[data-step="2"] .cover,.cm[data-step="3"] .cover,
+.cm[data-step="4"] .cover,.cm[data-step="5"] .cover,.cm[data-step="done"] .cover{
+  opacity:1;transform:none;
+  transition:opacity var(--t-rite) var(--ease-out),transform var(--t-rite) var(--ease-out);
+}
+/* 书脊：左侧深一档，靠渐变不靠图 */
+.cover::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:3;pointer-events:none;
+  background:linear-gradient(90deg,rgba(5,7,14,.9),rgba(5,7,14,.18) 62%,transparent);
+  border-right:1px solid rgba(199,164,90,.16);
+}
+.cover-art{position:absolute;inset:0;z-index:1}
+.cover-art svg{width:100%;height:100%;display:block}
+.cover-glow{
+  position:absolute;inset:-30% -30% -30% -30%;z-index:0;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(199,164,90,.16),transparent 72%);
+  opacity:0;transition:opacity var(--t-rite-long) var(--ease);
+}
+.cm[data-step="3"] .cover-glow,.cm[data-step="4"] .cover-glow,
+.cm[data-step="5"] .cover-glow,.cm[data-step="done"] .cover-glow{opacity:1}
+
+/* 封面文字层 */
+.cover-tx{
+  position:absolute;inset:0;z-index:4;
+  display:flex;flex-direction:column;
+  padding:var(--s7) var(--s5) var(--s6) calc(26px + var(--s5));
+  text-align:center;
+}
+.cover-tx .kicker{
+  font-family:var(--f-display);font-size:var(--fs-2xs);letter-spacing:.42em;
+  color:rgba(216,197,154,.42);text-transform:uppercase;
+}
+.cover-tx h2{
+  margin-top:var(--s5);font-size:var(--fs-xl);line-height:1.35;
+  font-weight:500;letter-spacing:.06em;
+}
+.cover-tx .orn{margin:var(--s5) auto 0;width:74px;height:9px;color:var(--old-copper);opacity:.7}
+.cover-tx .orn svg{width:100%;height:100%}
+.cover-tx .sp{flex:1}
+
+/* 步骤 2：原作者署名出现（§5.5 验收：始终保留，不能被覆盖）*/
+.cover-author{
+  font-size:var(--fs-xs);letter-spacing:.16em;color:rgba(216,197,154,.72);
+  opacity:0;transform:translateY(6px);
+}
+.cm[data-step="2"] .cover-author,.cm[data-step="3"] .cover-author,
+.cm[data-step="4"] .cover-author,.cm[data-step="5"] .cover-author,
+.cm[data-step="done"] .cover-author{
+  opacity:1;transform:none;transition:opacity var(--t-rite) var(--ease),transform var(--t-rite) var(--ease-out);
+}
+.cover-author b{font-weight:400;color:var(--parch-base)}
+/* 原作者的「著」与读者的「编注」是一对，字号必须一致（§5.5 身份区分）*/
+.cover-author .role{font-size:var(--fs-2xs);letter-spacing:.2em;opacity:.72}
+
+.cover-div{
+  width:1px;height:0;margin:var(--s3) auto;
+  background:linear-gradient(180deg,transparent,var(--ln-copper),transparent);
+  transition:height var(--t-rite) var(--ease);
+}
+.cm[data-step="3"] .cover-div,.cm[data-step="4"] .cover-div,
+.cm[data-step="5"] .cover-div,.cm[data-step="done"] .cover-div{height:22px}
+
+/* 步骤 3：用户名以金色「书写」—— stroke-dashoffset，不是淡入 */
+.cover-sig{height:40px;display:grid;place-items:center}
+.cover-sig svg{width:100%;height:100%;overflow:visible}
+.cover-sig .wr{
+  fill:none;stroke:var(--dusk-gold);stroke-width:1.1;
+  stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 7px rgba(199,164,90,.75));
+  stroke-dasharray:var(--len,900);stroke-dashoffset:var(--len,900);
+}
+.cm[data-step="3"] .cover-sig .wr,.cm[data-step="4"] .cover-sig .wr,
+.cm[data-step="5"] .cover-sig .wr,.cm[data-step="done"] .cover-sig .wr{
+  animation:draw 1500ms var(--ease) forwards;
+}
+/* 书写完成后填充金色，让名字变成实体 */
+.cover-sig .fl{
+  fill:url(#gGoldSig);opacity:0;
+  font-family:var(--f-display);font-size:26px;letter-spacing:.14em;
+}
+.cm[data-step="4"] .cover-sig .fl,.cm[data-step="5"] .cover-sig .fl,
+.cm[data-step="done"] .cover-sig .fl{opacity:1;transition:opacity 700ms var(--ease) 200ms}
+/* 身份标「编注」：从 SVG 里挪出来用 HTML 渲染，字号才受令牌控制。
+   和原作者的「著」构成 §5.5 的身份区分，必须读得清，不能缩成装饰。
+   默认可见（个人秘典直接用终态），仅在仪式里按步骤揭示。 */
+.cover-role{
+  margin-top:2px;font-size:var(--fs-2xs);letter-spacing:.24em;
+  color:rgba(216,197,154,.6);font-family:var(--f-serif);
+}
+.cm .cover-role{opacity:0}
+.cm[data-step="4"] .cover-role,.cm[data-step="5"] .cover-role,
+.cm[data-step="done"] .cover-role{opacity:1;transition:opacity var(--t-rite) var(--ease)}
+
+/* 步骤 4：版本编号生成 */
+.cover-ver{
+  margin-top:var(--s3);font-family:var(--f-display);
+  /* 版本编号是署名行的一部分（§5.5 验收要它留在封面上），不缩成装饰字号 */
+  font-size:var(--fs-mono);letter-spacing:.3em;color:rgba(216,197,154,.62);
+  opacity:0;
+}
+.cm[data-step="4"] .cover-ver,.cm[data-step="5"] .cover-ver,.cm[data-step="done"] .cover-ver{
+  opacity:1;transition:opacity var(--t-rite) var(--ease);
+}
+
+/* 步骤 5：契印落在封面 */
+.cover-seal{
+  position:absolute;right:var(--s5);bottom:var(--s5);z-index:5;
+  width:78px;height:78px;
+  opacity:0;transform:scale(1.5) rotate(-12deg);
+}
+.cm[data-step="5"] .cover-seal,.cm[data-step="done"] .cover-seal{
+  animation:sealDrop 760ms var(--ease-out) forwards;
+}
+@keyframes sealDrop{
+  0%{opacity:0;transform:scale(1.55) rotate(-12deg)}
+  62%{opacity:1;transform:scale(.94) rotate(1.5deg)}
+  100%{opacity:1;transform:scale(1) rotate(0)}
+}
+.cover-seal svg{width:100%;height:100%;filter:drop-shadow(0 0 14px rgba(199,164,90,.5))}
+
+/* 落印冲击波 */
+.cm-shock{
+  position:absolute;left:50%;top:50%;z-index:1;width:340px;height:340px;
+  translate:-50% -50%;border-radius:50%;pointer-events:none;
+  border:1px solid rgba(199,164,90,.5);opacity:0;
+}
+.cm[data-step="5"] .cm-shock,.cm[data-step="done"] .cm-shock{animation:shock 1100ms var(--ease-out) forwards}
+@keyframes shock{
+  from{opacity:.9;transform:scale(.34)}
+  to{opacity:0;transform:scale(1.9)}
+}
+
+/* ---------- 底部说明与操作 ---------- */
+.cm-cap{
+  position:relative;z-index:2;text-align:center;max-width:52ch;
+  min-height:3.4em;
+}
+.cm-cap .ln1{font-size:var(--fs-sm);letter-spacing:.14em;color:var(--tx-mid)}
+.cm-cap .ln2{margin-top:var(--s2);font-size:var(--fs-mono);color:var(--tx-faint);line-height:1.9}
+
+.cm-acts{position:relative;z-index:3;display:flex;gap:var(--s3);align-items:center}
+.cm-quit{position:absolute;left:var(--s6);top:var(--s5);z-index:4}
+
+/* ---------- 发布前确认用户名（§5.5）---------- */
+.confirm-name{width:min(520px,100%);padding:var(--s7);border-radius:var(--r-xl);text-align:center}
+.confirm-name h3{font-size:var(--fs-xl);color:var(--parch-ink)}
+.confirm-name p{font-size:var(--fs-sm);color:var(--parch-ink-soft);margin:var(--s3) 0 var(--s6);line-height:1.9}
+.confirm-name .preview{
+  margin:var(--s5) 0;padding:var(--s4);border-radius:var(--r-md);
+  border:1px solid rgba(122,88,50,.4);background:rgba(122,88,50,.08);
+  font-family:var(--f-display);font-size:var(--fs-sm);letter-spacing:.1em;color:var(--parch-ink);
+}
+.confirm-name .keep{
+  font-size:var(--fs-mono);color:var(--parch-ink-soft);line-height:1.8;margin-top:var(--s3);
+}
+.confirm-name .row{display:flex;gap:var(--s3);justify-content:center;margin-top:var(--s6)}
+
+/* ==========================================================================
+   个人秘典（仪式后的成品页）
+   ========================================================================== */
+#view-opus{overflow-y:auto}
+.op{
+  position:absolute;inset:0;overflow-y:auto;
+  display:flex;flex-direction:column;align-items:center;
+  padding:var(--s9) var(--s8);
+}
+.op-head{text-align:center;margin-bottom:var(--s8)}
+.op-head .eyebrow{font-size:var(--fs-mono);letter-spacing:.4em;color:var(--tx-low);text-transform:uppercase}
+.op-head h2{margin-top:var(--s4);font-size:var(--fs-3xl)}
+.op-head p{margin-top:var(--s4);font-size:var(--fs-sm);color:var(--tx-mid);letter-spacing:.06em}
+.op-body{display:flex;gap:var(--s9);align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.op-cover{width:300px;flex:none}
+.op-side{width:min(520px,100%);display:flex;flex-direction:column;gap:var(--s6)}
+.op-meta{display:flex;flex-direction:column;gap:var(--s3)}
+.op-meta .rw{
+  display:flex;justify-content:space-between;gap:var(--s4);
+  padding:var(--s3) 0;border-bottom:1px solid var(--ln-hair);
+  font-size:var(--fs-sm);
+}
+.op-meta .rw .k{color:var(--tx-low);letter-spacing:.14em;font-size:var(--fs-xs)}
+.op-meta .rw .v{color:var(--tx-hi);font-family:var(--f-display);letter-spacing:.1em}
+.op-quote{
+  padding:var(--s5);border-radius:var(--r-md);border-left:2px solid var(--dusk-gold);
+  background:rgba(199,164,90,.06);font-size:var(--fs-sm);line-height:2;color:var(--tx-mid);
+  max-height:11em;overflow:hidden;
+}
+.op-acts{display:flex;gap:var(--s3);flex-wrap:wrap}
+
+/* 1080p 录屏：压一压竖向占用，让「回到书库」等按钮不用滚动就可见。
+   更矮的屏幕（768）仍可滚动，滚动本身就是兜底（#view-opus{overflow-y:auto}）*/
+@media (max-height:1180px){
+  .op{padding:var(--s6) var(--s8)}
+  .op-head{margin-bottom:var(--s5)}
+  .op-side{gap:var(--s4)}
+  .op-meta{gap:var(--s2)}
+  .op-side svg{width:120px;height:120px}
+}

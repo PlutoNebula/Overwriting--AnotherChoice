@@ -1,0 +1,391 @@
+/* ==========================================================================
+   base.css — 全局底、纹理、排版、通用组件
+   质感全部由 SVG 滤镜 / CSS 渐变生成，不用位图（1920 录屏下位图要么糊要么巨大）
+   ========================================================================== */
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+html,body{height:100%}
+html{
+  font-size:16px;
+  background:var(--ink-abyss);
+  -webkit-text-size-adjust:100%;
+}
+body{
+  font-family:var(--f-serif);
+  font-size:var(--fs-md);
+  line-height:var(--lh-body);
+  color:var(--tx-hi);
+  background:var(--deep-blue);
+  overflow:hidden;                 /* 录屏禁止出现横向滚动条 */
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* 全局氛围层：暮紫只做角落渐变，不平铺（§9 实测暮紫 ≤17%）*/
+body::before{
+  content:"";position:fixed;inset:0;z-index:var(--z-bg);pointer-events:none;
+  background:
+    /* 两角的暮紫压低一档：这层铺在所有页面上，原来 .72/.52 会把每张图的
+       暮紫抬高 1.4–4.5 个点。降到 .5/.36 后书库、终章都落回 §9 实测区间。 */
+    radial-gradient(1100px 780px at 12% -8%,rgba(36,23,53,.5),transparent 62%),
+    radial-gradient(980px 720px at 92% 108%,rgba(36,23,53,.36),transparent 60%),
+    radial-gradient(1400px 900px at 50% 50%,rgba(12,17,32,.4),transparent 70%);
+}
+/* 极细噪点，压掉大面积纯色的塑料感 */
+body::after{
+  content:"";position:fixed;inset:0;z-index:var(--z-bg);pointer-events:none;
+  opacity:.16;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'>\
+<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/>\
+<feColorMatrix type='saturate' values='0'/></filter>\
+<rect width='180' height='180' filter='url(%23n)'/></svg>");
+}
+
+::selection{background:rgba(199,164,90,.26);color:var(--parch-hi)}
+
+/* 滚动条：金属细条，不用系统默认蓝 */
+*{scrollbar-width:thin;scrollbar-color:rgba(122,88,50,.5) transparent}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{
+  background:linear-gradient(var(--old-copper),rgba(122,88,50,.35));
+  border-radius:9px;border:2px solid transparent;background-clip:padding-box;
+}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(var(--dusk-gold),var(--old-copper));background-clip:padding-box}
+
+/* ---------- 无障碍 ---------- */
+:where(a,button,input,textarea,[tabindex]):focus-visible{
+  outline:2px solid var(--ln-focus);outline-offset:3px;border-radius:var(--r-sm);
+}
+.sr{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+.skip{
+  position:fixed;left:var(--s4);top:-100px;z-index:var(--z-toast);
+  padding:var(--s2) var(--s4);background:var(--dusk-gold);color:var(--on-accent);
+  border-radius:var(--r-md);font-size:var(--fs-sm);transition:top var(--t-fast) var(--ease);
+}
+.skip:focus{top:var(--s4)}
+
+/* ==========================================================================
+   排版
+   ========================================================================== */
+h1,h2,h3,h4{font-weight:500;line-height:var(--lh-tight);letter-spacing:.01em}
+.display{
+  font-family:var(--f-display);font-weight:400;
+  letter-spacing:.16em;text-transform:uppercase;
+}
+.t-eyebrow{
+  font-size:var(--fs-mono);letter-spacing:.34em;text-transform:uppercase;
+  color:var(--tx-low);font-family:var(--f-display);
+}
+.t-num{font-family:var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:.1em}
+.t-mid{color:var(--tx-mid)}
+.t-low{color:var(--tx-low)}
+.t-gold{color:var(--accent-tx)}
+.t-teal{color:var(--teal-magic)}
+
+/* 金箔标题：极窄的渐变，不做彩虹反光 */
+.gilt{
+  background:linear-gradient(174deg,#F0DFAE 6%,var(--dusk-gold) 46%,#8A6A34 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+
+/* 术语首现的解释（§2 末尾：不能让评审先学世界观）*/
+.term{
+  border-bottom:1px dotted rgba(199,164,90,.55);
+  cursor:help;position:relative;
+}
+.term::after{
+  content:attr(data-gloss);
+  position:absolute;left:50%;bottom:calc(100% + 10px);translate:-50% 0;
+  min-width:max-content;max-width:19rem;white-space:normal;
+  padding:var(--s2) var(--s3);
+  background:var(--ink-panel);color:var(--tx-mid);
+  border:1px solid var(--ln-copper);border-radius:var(--r-md);
+  font-size:var(--fs-xs);line-height:1.7;letter-spacing:0;
+  box-shadow:var(--sh-card);
+  opacity:0;visibility:hidden;transform:translateY(4px);
+  transition:opacity var(--t-fast) var(--ease),transform var(--t-fast) var(--ease),visibility var(--t-fast);
+  z-index:var(--z-modal);pointer-events:none;
+}
+.term:hover::after,.term:focus-visible::after{opacity:1;visibility:visible;transform:translateY(0)}
+
+/* ==========================================================================
+   通用组件
+   ========================================================================== */
+
+/* ---- 按钮 ---- */
+.btn{
+  --btn-h:40px;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  height:var(--btn-h);padding:0 var(--s5);
+  font-family:var(--f-serif);font-size:var(--fs-sm);letter-spacing:.09em;
+  color:var(--tx-hi);background:transparent;
+  border:1px solid var(--ln-copper);border-radius:var(--r-md);
+  cursor:pointer;position:relative;isolation:isolate;
+  overflow:hidden;                  /* 扫光停在按钮外面时会挡住旁边的按钮，必须裁掉 */
+  transition:color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),
+             background-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease),
+             transform var(--t-fast) var(--ease);
+}
+.btn::before{                       /* 扫光，只在 hover 时出现一次 */
+  content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;
+  pointer-events:none;
+  background:linear-gradient(100deg,transparent 30%,rgba(216,197,154,.16) 50%,transparent 70%);
+  translate:-120% 0;transition:translate var(--t-slow) var(--ease);
+}
+.btn:hover::before{translate:120% 0}
+.btn:hover{border-color:var(--dusk-gold);color:var(--parch-hi)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled],.btn[aria-disabled="true"]{
+  opacity:.42;cursor:not-allowed;transform:none;
+  border-color:var(--ln-copper-soft);color:var(--tx-low);
+}
+.btn[disabled]::before,.btn[aria-disabled="true"]::before{display:none}
+
+.btn--primary{
+  background:linear-gradient(178deg,#E2CB92,var(--dusk-gold) 52%,#9C7C3C);
+  border-color:#E7D5A4;color:var(--on-accent);font-weight:500;
+  box-shadow:0 10px 26px -14px rgba(199,164,90,.7),inset 0 1px 0 rgba(255,255,255,.34);
+}
+.btn--primary:hover{
+  color:var(--on-accent);box-shadow:0 14px 34px -14px rgba(199,164,90,.9),
+  inset 0 1px 0 rgba(255,255,255,.42),var(--glow-gold);
+}
+.btn--ghost{border-color:transparent;color:var(--tx-mid)}
+.btn--ghost:hover{border-color:var(--ln-copper-soft);background:rgba(216,197,154,.05)}
+.btn--danger{border-color:rgba(138,63,77,.6);color:#C98894}
+.btn--danger:hover{border-color:var(--dusk-red);background:rgba(138,63,77,.14);color:#E2A3AE}
+.btn--sm{--btn-h:31px;padding:0 var(--s3);font-size:var(--fs-xs)}
+.btn--lg{--btn-h:50px;padding:0 var(--s7);font-size:var(--fs-md);letter-spacing:.14em}
+.btn--block{width:100%}
+.btn--icon{--btn-h:34px;width:34px;padding:0;border-color:transparent;color:var(--tx-low)}
+.btn--icon:hover{color:var(--dusk-gold);border-color:var(--ln-copper-soft)}
+.btn--icon.is-on{color:var(--dusk-gold);border-color:var(--ln-gold);background:rgba(199,164,90,.09)}
+.btn svg{width:16px;height:16px;flex:none}
+
+/* ---- 卡片 / 面板：深色皮革 + 旧铜描边 ---- */
+.panel{
+  background:
+    linear-gradient(158deg,rgba(36,23,53,.5),rgba(9,13,24,.72)),
+    var(--ink-raise);
+  border:1px solid var(--ln-copper-soft);border-radius:var(--r-lg);
+  box-shadow:var(--sh-card);
+}
+.leather{
+  position:relative;
+  background:
+    linear-gradient(152deg,var(--leather-3) 0%,var(--leather-2) 44%,var(--leather-1) 100%);
+}
+.leather::after{                    /* 皮革粒纹 */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  opacity:.42;mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'>\
+<filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.62 .78' numOctaves='4' seed='7'/>\
+<feColorMatrix type='saturate' values='0'/></filter>\
+<rect width='140' height='140' filter='url(%23g)'/></svg>");
+}
+
+/* 羊皮纸：只用在有字要读 / 要写的地方 */
+.parch{
+  position:relative;color:var(--parch-ink);
+  background:
+    radial-gradient(120% 90% at 22% 8%,rgba(255,255,255,.4),transparent 55%),
+    radial-gradient(90% 70% at 88% 96%,rgba(122,88,50,.2),transparent 58%),
+    linear-gradient(168deg,var(--parch-hi) 0%,var(--parch-base) 52%,var(--parch-lo) 100%);
+  box-shadow:var(--sh-page),inset 0 0 60px rgba(122,88,50,.16);
+}
+.parch::before{                     /* 纤维纹 */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  opacity:.3;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>\
+<filter id='p'><feTurbulence type='fractalNoise' baseFrequency='.028 .05' numOctaves='5' seed='3'/>\
+<feColorMatrix type='matrix' values='0 0 0 0 .48  0 0 0 0 .38  0 0 0 0 .24  0 0 0 .5 0'/></filter>\
+<rect width='200' height='200' filter='url(%23p)'/></svg>");
+}
+
+/* 旧铜包角：四角 L 形描边，用伪元素画，不用图 */
+.corners{position:relative}
+.corners>.cnr{
+  position:absolute;width:18px;height:18px;pointer-events:none;
+  border:1px solid var(--ln-gold);opacity:.7;
+}
+.corners>.cnr.tl{top:7px;left:7px;border-right:0;border-bottom:0}
+.corners>.cnr.tr{top:7px;right:7px;border-left:0;border-bottom:0}
+.corners>.cnr.bl{bottom:7px;left:7px;border-right:0;border-top:0}
+.corners>.cnr.br{bottom:7px;right:7px;border-left:0;border-top:0}
+
+/* 细分隔线：中间亮两端淡，避免生硬 */
+.rule{
+  height:1px;border:0;
+  background:linear-gradient(90deg,transparent,var(--ln-copper) 22%,var(--ln-copper) 78%,transparent);
+  opacity:.7;
+}
+
+/* ---- 表单 ---- */
+.field{display:flex;flex-direction:column;gap:var(--s2)}
+.field>label{font-size:var(--fs-xs);letter-spacing:.16em;color:var(--tx-low);text-transform:uppercase}
+.input,.textarea{
+  width:100%;font-family:var(--f-serif);font-size:var(--fs-md);color:var(--tx-hi);
+  background:rgba(5,7,14,.62);border:1px solid var(--ln-copper-soft);
+  border-radius:var(--r-md);padding:var(--s3) var(--s4);
+  transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease);
+}
+.input::placeholder,.textarea::placeholder{color:var(--tx-faint)}
+.input:focus,.textarea:focus{
+  outline:none;border-color:var(--dusk-gold);box-shadow:0 0 0 3px rgba(199,164,90,.14);
+}
+.textarea{resize:none;line-height:var(--lh-body)}
+.input--quill{                      /* 署名输入：像在纸上写字 */
+  background:transparent;border:0;border-bottom:1px solid var(--ln-copper);
+  border-radius:0;text-align:center;font-family:var(--f-display);
+  font-size:var(--fs-2xl);letter-spacing:.14em;color:var(--parch-ink);
+  padding:var(--s2) var(--s3);
+}
+.input--quill:focus{box-shadow:none;border-bottom-color:var(--dusk-gold)}
+.input--quill::placeholder{color:rgba(91,75,51,.42);letter-spacing:.2em}
+
+/* ---- 徽标 / 标签 ---- */
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px;border-radius:999px;
+  font-size:var(--fs-mono);letter-spacing:.13em;
+  border:1px solid var(--ln-copper-soft);color:var(--tx-low);
+  background:rgba(5,7,14,.4);white-space:nowrap;
+}
+.tag--gold{border-color:var(--ln-gold);color:var(--accent-tx);background:rgba(199,164,90,.1)}
+.tag--teal{border-color:rgba(83,167,184,.45);color:var(--teal-magic);background:rgba(83,167,184,.1)}
+.tag--locked{border-style:dashed;color:var(--tx-faint)}
+.tag .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ---- 进度条 ---- */
+.bar{height:3px;background:rgba(216,197,154,.12);border-radius:999px;overflow:hidden}
+.bar>i{
+  display:block;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,var(--old-copper),var(--dusk-gold));
+  transition:width var(--t-slow) var(--ease);
+}
+
+/* ---- 空状态（§8 文案给定）---- */
+.empty{
+  display:flex;flex-direction:column;align-items:center;gap:var(--s3);
+  padding:var(--s7) var(--s5);text-align:center;color:var(--tx-low);
+  font-size:var(--fs-sm);line-height:1.9;
+}
+.empty svg{width:44px;height:44px;opacity:.5}
+
+/* ---- 遮罩与对话框（§8 二次确认，默认按钮为取消）---- */
+.scrim{
+  position:fixed;inset:0;z-index:var(--z-modal);
+  display:grid;place-items:center;padding:var(--s5);
+  background:rgba(3,5,10,.78);backdrop-filter:blur(6px);
+  animation:fade var(--t-enter) var(--ease) both;
+}
+.dialog{
+  width:min(480px,100%);padding:var(--s6);border-radius:var(--r-xl);
+  animation:rise var(--t-enter) var(--ease-out) both;
+}
+.dialog h3{font-size:var(--fs-xl);margin-bottom:var(--s3)}
+.dialog p{color:var(--tx-mid);font-size:var(--fs-sm);margin-bottom:var(--s6)}
+.dialog .row{display:flex;gap:var(--s3);justify-content:flex-end}
+
+/* ---- 轻提示 ---- */
+.toast-wrap{
+  position:fixed;left:50%;bottom:var(--s7);translate:-50% 0;z-index:var(--z-toast);
+  display:flex;flex-direction:column;gap:var(--s2);align-items:center;pointer-events:none;
+}
+.toast{
+  display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s3) var(--s5);border-radius:999px;
+  background:rgba(14,21,38,.96);border:1px solid var(--ln-copper);
+  color:var(--tx-hi);font-size:var(--fs-sm);box-shadow:var(--sh-lift);
+  animation:rise var(--t-enter) var(--ease-out) both;
+}
+.toast.is-out{animation:sink var(--t-exit) var(--ease) both}
+.toast .ico{color:var(--dusk-gold);display:grid;place-items:center}
+.toast--warn .ico{color:var(--dusk-red)}
+
+/* ---- 轻量仪式遮罩（第一枚铭文，约 2s，§5.5 文案固定）---- */
+.rite{
+  position:fixed;inset:0;z-index:var(--z-rite);
+  display:grid;place-items:center;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(5,7,14,.9),rgba(5,7,14,.66));
+  animation:fade 320ms var(--ease) both;
+}
+.rite.is-out{animation:fade 300ms var(--ease) reverse both}
+.rite-in{display:flex;flex-direction:column;align-items:center;gap:var(--s6);text-align:center}
+.rite-sig{
+  position:relative;width:128px;height:128px;
+  animation:riteSig 1500ms var(--ease-out) both;
+}
+@keyframes riteSig{
+  0%{opacity:0;transform:scale(.72) rotate(-16deg)}
+  55%{opacity:1;transform:scale(1.04) rotate(2deg)}
+  100%{opacity:1;transform:scale(1) rotate(0)}
+}
+.rite-sig::after{                   /* 一圈扩散的光 */
+  content:"";position:absolute;inset:0;border-radius:50%;
+  border:1px solid rgba(199,164,90,.6);
+  animation:riteWave 1400ms var(--ease-out) 200ms both;
+}
+.rite-tx{
+  max-width:32ch;font-size:var(--fs-lg);line-height:1.9;letter-spacing:.1em;
+  color:var(--parch-base);
+  animation:rise 700ms var(--ease-out) 420ms both;
+}
+@keyframes riteWave{from{opacity:.85;transform:scale(.6)}to{opacity:0;transform:scale(1.7)}}
+
+/* ==========================================================================
+   动画
+   ========================================================================== */
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes sink{to{opacity:0;transform:translateY(-8px)}}
+@keyframes breathe{0%,100%{opacity:.5}50%{opacity:.85}}
+@keyframes twinkle{0%,100%{opacity:.14}50%{opacity:.9}}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* ==========================================================================
+   外壳
+   ========================================================================== */
+#main{position:fixed;inset:0;z-index:var(--z-page)}
+#main:focus{outline:none}
+
+/* 演示模式标记（?demo=1）：提醒演示者数据是分开存的 */
+.demo-flag{
+  position:fixed;left:50%;top:0;translate:-50% 0;z-index:var(--z-toast);
+  padding:5px var(--s5);border-radius:0 0 var(--r-md) var(--r-md);
+  background:rgba(83,167,184,.14);border:1px solid rgba(83,167,184,.4);border-top:0;
+  color:var(--teal-magic);font-size:var(--fs-mono);letter-spacing:.16em;
+  pointer-events:none;
+}
+
+/* 页面切换：淡入 + 微升，不用黑场硬切 */
+.view{position:absolute;inset:0;display:none;z-index:var(--z-page)}
+.view.is-active{display:block;animation:viewIn var(--t-slow) var(--ease-out) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(10px) scale(.995)}to{opacity:1;transform:none}}
+
+/* §5.1 / §14.8 减少动态效果时关闭装饰动画，但保留状态变化 */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important;
+  }
+}
+
+/* 1366×768 适配（§14.7）*/
+@media (max-width:1500px){
+  :root{
+    --fs-4xl:46px;--fs-3xl:34px;--fs-2xl:26px;--fs-xl:20px;
+    --fs-lg:17px;--fs-md:15px;--s9:64px;--s8:48px;--s7:36px;
+  }
+}
+@media (max-height:800px){
+  :root{--s9:52px;--s8:38px;--s7:28px;--lh-body:1.8}
+}

@@ -1,0 +1,131 @@
+/* ==========================================================================
+   覆写：故事新编 — 设计令牌
+   唯一的颜色 / 间距 / 动效来源。其他 CSS 文件不要再写颜色字面量。
+   色板由 PRD §9.1 给定，派生色只做明暗，不引入新色相。
+   ========================================================================== */
+
+:root{
+  /* ---------- §9.1 给定色板 ---------- */
+  --deep-blue:#090D18;    /* 主背景 */
+  --dusk-purple:#241735;  /* 氛围层，不平铺 */
+  --parchment:#D8C59A;    /* 只用在有字要读 / 要写的地方 */
+  --dusk-gold:#C7A45A;    /* 强调 */
+  --old-copper:#7A5832;   /* 金属 */
+  --teal-magic:#53A7B8;   /* 魔法色 */
+  --dusk-red:#8A3F4D;     /* 点缀，<0.5% */
+
+  /* ---------- 派生表面 ---------- */
+  --ink-abyss:#05070E;
+  --ink-base:#090D18;
+  --ink-raise:#0C1120;
+  --ink-panel:#0E1526;
+  /* 深色皮革：暖向而不是紫向。
+     实测原因：#20172B / #2B1F38 这两档在色板里离暮紫比离深蔚蓝更近，
+     而 .resume 一块就占屏幕 27.9%，于是书库整页被判成暮紫 31.8%
+     （§9 实测目标 11%）。皮革改走暖向后书库回到 15.2%，且亮度不掉。
+     这也更合 §9.1 的原话：温度感来自羊皮纸和旧铜，不来自紫。 */
+  --leather-1:#14100F;
+  --leather-2:#1C1714;
+  --leather-3:#221B17;
+  --parch-hi:#E8DAB7;
+  --parch-base:#D8C59A;
+  --parch-lo:#C1A97B;
+  --parch-ink:#241C12;
+  --parch-ink-soft:#5B4B33;
+
+  /* ---------- 文字（深色页上用低饱和纸色，避免铺开大片羊皮纸）---------- */
+  --tx-hi:#DFD2B2;
+  --tx-mid:rgba(216,197,154,.74);
+  --tx-low:rgba(216,197,154,.48);
+  --tx-faint:rgba(216,197,154,.26);
+  --accent-tx:#C7A45A;
+  --on-accent:#120D07;
+
+  /* ---------- 线条与金属 ---------- */
+  --ln-copper:rgba(122,88,50,.58);
+  --ln-copper-soft:rgba(122,88,50,.26);
+  --ln-gold:rgba(199,164,90,.52);
+  --ln-hair:rgba(216,197,154,.11);
+  --ln-focus:rgba(83,167,184,.85);
+
+  /* ---------- 四类铭文（语义色 + 第二区分维度见 base.css）---------- */
+  --ins-echo:#C7A45A;      /* 回响 · 实线 */
+  --ins-query:#8A3F4D;     /* 诘问 · 波浪 */
+  --ins-link:#53A7B8;      /* 星链 · 点线 */
+  --ins-cont:#7A5832;      /* 续章 · 双线 */
+  --ins-wash:.10;          /* 标记底色透明度，8–12% 区间取中 */
+
+  /* ---------- 字体（自托管栈；无 CDN，§5.6 断网可用）---------- */
+  --f-serif:"Noto Serif SC","Source Han Serif SC","Songti SC",
+            "SimSun-ExtB","STSong",Georgia,"Times New Roman",serif;
+  --f-display:"Cormorant Garamond","EB Garamond",Georgia,
+              "Noto Serif SC",serif;
+
+  /* ---------- 字号（1920 基准；1366 由 base.css 收缩）---------- */
+  --fs-mono:12px;
+  --fs-2xs:11px;    /* 纯装饰性字距标签的下限；正文与释义不得用它（§14.7 字号过小）*/
+  --fs-xs:13px;
+  --fs-sm:14px;
+  --fs-md:16px;
+  --fs-lg:19px;
+  --fs-xl:24px;
+  --fs-2xl:32px;
+  --fs-3xl:44px;
+  --fs-4xl:60px;
+  --lh-tight:1.3;
+  --lh-body:1.95;
+
+  /* ---------- 间距（4px 栅格，D5 统一间距就靠这层）---------- */
+  --s1:4px;  --s2:8px;  --s3:12px; --s4:16px;
+  --s5:24px; --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+
+  --r-sm:3px; --r-md:5px; --r-lg:8px; --r-xl:14px;
+
+  /* ---------- 动效节奏（§9 定调：进出 200–300ms，仪式 800ms–2s）---------- */
+  --ease:cubic-bezier(.4,0,.2,1);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --t-fast:160ms;
+  --t-enter:240ms;
+  --t-exit:200ms;
+  --t-slow:520ms;
+  --t-rite:900ms;
+  --t-rite-long:2000ms;
+
+  /* ---------- 阴影与光 ---------- */
+  --sh-card:0 18px 44px -22px rgba(0,0,0,.9);
+  --sh-lift:0 26px 60px -24px rgba(0,0,0,.95);
+  --sh-page:0 40px 90px -30px rgba(0,0,0,.85);
+  --glow-gold:0 0 22px rgba(199,164,90,.30);
+  --glow-teal:0 0 20px rgba(83,167,184,.28);
+
+  /* ---------- 版面（实测配比 → 布局变量）---------- */
+  --reader-toc:24%;
+  --reader-body:45%;
+  --reader-ins:31%;
+  /* 左栏收起后残留的图标轨宽度：tab 条住在左栏里，整列归零 tab 就没了 */
+  --reader-rail:56px;
+  --finale-rail:34%;
+  --z-bg:0; --z-page:10; --z-panel:40; --z-modal:60;
+  --z-rite:80; --z-toast:90;
+}
+
+/* 阅读器配色是主题的派生值（§5.3 主题单一来源）。
+   [data-theme] 只挂在 <html> 上，任何组件不得自己存一份。 */
+:root[data-theme="night"]{
+  --page-bg:var(--parch-base);
+  --page-tx:var(--parch-ink);
+  --page-tx-soft:var(--parch-ink-soft);
+  --page-edge:rgba(122,88,50,.34);
+}
+:root[data-theme="dark"]{           /* 阅读器深色配色：正文也转深底 */
+  --page-bg:#131A29;
+  --page-tx:#CFC3A6;
+  --page-tx-soft:rgba(207,195,166,.62);
+  --page-edge:rgba(122,88,50,.42);
+}
+:root[data-theme="sepia"]{
+  --page-bg:#E4D6B4;
+  --page-tx:#2A2013;
+  --page-tx-soft:#5E4E35;
+  --page-edge:rgba(122,88,50,.40);
+}

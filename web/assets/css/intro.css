@@ -1,0 +1,172 @@
+/* ==========================================================================
+   intro.css — 开场动画 + 首次署名
+   §5.1：羽毛笔漂浮绘制「已经摊开」的双页书。
+   不出现合上的书、不从下方升起、不播「打开」动画。
+   实测配比 P00：深蔚蓝 59% / 暮紫 2.6% / 羊皮纸 34%，书脊在画面 50%，
+   双页书居中约占中间 60% 宽。
+   ========================================================================== */
+
+#view-intro{background:var(--deep-blue);overflow:hidden}
+
+.intro-stage{position:absolute;inset:0}
+.intro-stage svg.sky,
+.intro-stage svg.book{position:absolute;inset:0;width:100%;height:100%;display:block}
+.intro-stage svg.book{z-index:2}
+
+/* 镜头推入：只做 scale + origin，不做 3D（2D 兜底同一套资产）*/
+.intro-cam{
+  position:absolute;inset:0;
+  transform-origin:50% 52%;
+  transition:transform 2600ms var(--ease-out);
+  will-change:transform;
+}
+.intro-cam.is-push{transform:scale(1.14)}
+
+/* 云层：只水平位移，不缩放，避免录屏纹理抖动 */
+@keyframes driftA{from{transform:translate3d(0,0,0)}to{transform:translate3d(-150px,0,0)}}
+@keyframes driftB{from{transform:translate3d(0,0,0)}to{transform:translate3d(110px,0,0)}}
+@keyframes driftC{from{transform:translate3d(0,0,0)}to{transform:translate3d(-60px,0,0)}}
+.cloud-far{animation:driftA 96s linear infinite alternate}
+.cloud-mid{animation:driftB 68s linear infinite alternate}
+.cloud-near{animation:driftC 124s linear infinite alternate}
+.halo{animation:breathe 11s ease-in-out infinite}
+.star{animation:twinkle 4s ease-in-out infinite}
+
+/* ---------- 线条描绘：stroke-dasharray + dashoffset ---------- */
+.ln{
+  fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:var(--len,2000);
+  stroke-dashoffset:var(--len,2000);
+}
+.is-playing .ln{animation:draw var(--dur,900ms) var(--ease) var(--at,0ms) forwards}
+
+/* 实体化：滤镜后的羊皮纸 / 皮革 / 金属逐渐显影 */
+.solid{opacity:0;transition:opacity 1100ms var(--ease)}
+.is-solid .solid{opacity:1}
+
+/* 羽毛笔：沿路径漂浮 */
+.quill{
+  transform-box:fill-box;transform-origin:14% 88%;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.6));
+}
+.quill-orbit{offset-path:var(--path);offset-rotate:0deg;animation:none}
+.is-playing .quill-orbit{
+  animation:quillFly var(--flight,5200ms) var(--ease) forwards;
+}
+@keyframes quillFly{from{offset-distance:0%}to{offset-distance:100%}}
+@keyframes quillIdle{
+  0%,100%{transform:translate(0,0) rotate(0deg)}
+  50%{transform:translate(6px,-10px) rotate(-2.5deg)}
+}
+.quill-idle{animation:quillIdle 5s ease-in-out infinite}
+
+/* 笔尖光点 */
+.nib{filter:drop-shadow(0 0 8px rgba(199,164,90,.95))}
+.is-playing .nib{animation:nibPulse 1.6s ease-in-out infinite}
+@keyframes nibPulse{0%,100%{r:3.2;opacity:.9}50%{r:4.6;opacity:1}}
+
+/* ---------- 开场文案 ---------- */
+.intro-title{
+  position:absolute;left:0;right:0;top:11%;z-index:4;
+  text-align:center;pointer-events:none;
+  opacity:0;transition:opacity 900ms var(--ease),transform 900ms var(--ease-out);
+  transform:translateY(10px);
+}
+.intro-title.is-in{opacity:1;transform:none}
+.intro-title .en{
+  font-family:var(--f-display);font-size:var(--fs-2xl);
+  letter-spacing:.52em;text-transform:uppercase;
+  text-shadow:0 0 30px rgba(9,13,24,.9);
+}
+.intro-title .cn{
+  margin-top:var(--s3);font-size:var(--fs-sm);
+  letter-spacing:.44em;color:var(--tx-low);
+}
+
+/* 启动提示：羽毛笔可点 */
+.intro-cta{
+  position:absolute;left:50%;bottom:11%;translate:-50% 0;z-index:5;
+  display:flex;flex-direction:column;align-items:center;gap:var(--s4);
+  transition:opacity var(--t-slow) var(--ease);
+}
+.intro-cta.is-hidden{opacity:0;pointer-events:none}
+.intro-cta .hint{
+  font-size:var(--fs-xs);letter-spacing:.3em;color:var(--tx-low);
+  animation:breathe 3.4s ease-in-out infinite;
+}
+.intro-cta kbd{
+  font-family:var(--f-display);font-size:var(--fs-mono);
+  padding:2px 8px;border:1px solid var(--ln-copper);border-radius:var(--r-sm);
+  color:var(--accent-tx);letter-spacing:.1em;
+}
+
+/* 跳过 / 重播：右上角常驻 */
+.intro-tools{
+  position:absolute;right:var(--s6);top:var(--s5);z-index:6;
+  display:flex;gap:var(--s2);
+}
+
+/* 进度细线：让评审知道 6–8s 还剩多少 */
+.intro-progress{
+  position:absolute;left:0;right:0;bottom:0;height:2px;z-index:6;
+  background:rgba(216,197,154,.08);
+}
+.intro-progress>i{
+  display:block;height:100%;width:0;
+  background:linear-gradient(90deg,var(--old-copper),var(--dusk-gold),var(--teal-magic));
+}
+.is-playing .intro-progress>i{animation:introBar var(--total,7000ms) linear forwards}
+@keyframes introBar{to{width:100%}}
+
+/* 收尾：书页自然变成书库，不用黑场 —— 靠 opacity + scale 交叠 */
+#view-intro.is-leaving{
+  animation:introLeave 900ms var(--ease) forwards;
+}
+@keyframes introLeave{
+  to{opacity:0;transform:scale(1.06);filter:blur(3px)}
+}
+
+/* ==========================================================================
+   首次署名（P01：羊皮纸卡片居中，亮区 22–78%，羊皮纸 30%）
+   ========================================================================== */
+#view-signin{display:none;place-items:center;padding:var(--s7)}
+#view-signin.is-active{display:grid}
+
+.sign-card{
+  /* 560px 时羊皮纸只占 13.1%、亮区 35–65%，离本块自己写的目标（亮区 22–78%、
+     羊皮纸 30%）差一半。1040px 实测亮区 23–77%，与原型 22–77% 基本重合；
+     1366×768 下无横向滚动，卡片仍完整可见（§14.7）。*/
+  position:relative;width:min(1040px,92vw);
+  padding:var(--s9) var(--s8) var(--s8);
+  border-radius:var(--r-xl);text-align:center;
+  animation:rise var(--t-slow) var(--ease-out) both;
+}
+.sign-card .seal{
+  position:absolute;left:50%;top:0;translate:-50% -50%;
+  width:64px;height:64px;
+}
+.sign-card .eyebrow{
+  font-size:var(--fs-mono);letter-spacing:.4em;text-transform:uppercase;
+  color:var(--parch-ink-soft);font-family:var(--f-display);
+}
+.sign-card h2{
+  margin-top:var(--s4);font-size:var(--fs-2xl);color:var(--parch-ink);
+  font-weight:500;letter-spacing:.04em;
+}
+.sign-card .lede{
+  margin:var(--s4) auto 0;max-width:38ch;
+  font-size:var(--fs-sm);line-height:2;color:var(--parch-ink-soft);
+}
+.sign-form{margin-top:var(--s8);display:flex;flex-direction:column;gap:var(--s5)}
+.sign-form .count{font-size:var(--fs-mono);color:var(--parch-ink-soft);letter-spacing:.1em}
+.sign-note{
+  margin-top:var(--s6);font-size:var(--fs-mono);line-height:1.9;
+  color:rgba(91,75,51,.78);letter-spacing:.04em;
+}
+.sign-card .btn--primary{align-self:center;min-width:190px}
+/* 纸上的横格：写字的地方 */
+.sign-lines{
+  position:absolute;inset:auto var(--s8) 28%;height:1px;
+  background:repeating-linear-gradient(180deg,rgba(122,88,50,.16) 0 1px,transparent 1px 34px);
+  pointer-events:none;
+}
