@@ -9,6 +9,9 @@ dependencies = [
     "langchain-openai",
     "pydantic",
     "python-dotenv",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
 ]
 
 [dependency-groups]
