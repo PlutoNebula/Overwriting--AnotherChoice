@@ -20,12 +20,17 @@ START → load → chunk → analyze → assemble → review ──┬─ 通过
 
 ```
 works/<作品名>/
-├── 剧本摘要/     # 内容梗概.md / 章节摘要.md / 主题分析.md
-├── 人物信息/     # 人物总览.md / 人物关系.md / <角色名>.md（含经历时间线）
-├── 世界书/       # 世界设定/地点/势力组织/规则体系/时间线/术语表 + worldbook.json
-├── 评测报告.md    # 每轮评分 + 问题清单 + 修订记录
-└── _meta.json     # 元数据（源文件/模型/块数/修订次数/错误）
+├── 剧本摘要/            # 内容梗概.md / 章节摘要.md / 主题分析.md
+├── 人物信息/            # 人物总览.md / 人物关系.md + <角色名>.json（SillyTavern 角色卡）
+├── 世界书/              # 世界设定.md + world_info.json（SillyTavern World Info / 世界书）
+├── 评测报告.md           # 每轮评分 + 问题清单 + 修订记录
+└── _meta.json            # 元数据（源文件/模型/块数/修订次数/错误）
 ```
+
+**角色卡与世界书采用酒馆（SillyTavern）兼容格式**：
+
+- `人物信息/<角色名>.json`：`chara_card_v2` 规格（`spec`/`spec_version`/`data.name`/`data.description`/`data.personality`/`data.first_mes`…），可直接导入 SillyTavern 作为角色卡。
+- `世界书/world_info.json`：SillyTavern World Info（Lorebook）格式，`entries` 按 uid 编号，每条含触发 `key`（关键词）、`content`（注入内容）及 `position`/`constant`/`selective`/`group` 等字段，可直接导入 SillyTavern 世界书。
 
 ## 快速开始
 
@@ -84,6 +89,7 @@ literary_agent/
 ├── prompts.py      # 分析/成稿/评测提示词
 ├── nodes.py        # load/chunk/analyze/assemble/review/write
 ├── graph.py        # StateGraph + Send fan-out + review 回路
+├── tavern.py       # 角色卡/世界书的 SillyTavern 格式序列化
 ├── storage.py      # 目录/文件名清洗/原子写入
 └── mock_llm.py     # 离线假 LLM
 ```

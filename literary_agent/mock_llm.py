@@ -24,23 +24,29 @@ SAMPLE_ANALYSIS = {
     ],
 }
 
-SAMPLE_OUTPUTS = {
-    "剧本摘要/内容梗概.md": "# 内容梗概\n\n一句话：主角张三踏上旅程。\n\n全文梗概（示例）。",
-    "剧本摘要/章节摘要.md": "# 章节摘要\n\n## 开端\n- 张三离开故乡。",
-    "剧本摘要/主题分析.md": "# 主题分析\n\n主题：成长与抉择。",
-    "人物信息/人物总览.md": "# 人物总览\n\n| 姓名 | 身份 | 定位 |\n|------|------|------|\n| 张三 | 旅人 | 主角 |",
-    "人物信息/人物关系.md": "# 人物关系\n\n- 张三 — 同伴 — 李四",
-    "人物信息/张三.md": "# 张三\n\n## 经历时间线\n1. 离开故乡",
-    "世界书/世界设定.md": "# 世界设定\n\n雾镇及周边。",
-    "世界书/地点.md": "# 地点\n\n## 雾镇\n终年有雾。",
-    "世界书/势力组织.md": "# 势力组织\n\n（无）",
-    "世界书/规则体系.md": "# 规则体系\n\n（无）",
-    "世界书/时间线.md": "# 时间线\n\n1. 张三离开故乡",
-    "世界书/术语表.md": "# 术语表\n\n（无）",
-    "世界书/worldbook.json": json.dumps(
-        {"entries": [{"keys": ["雾镇"], "category": "地点", "content": "终年有雾的小镇"}]},
-        ensure_ascii=False,
-    ),
+SAMPLE_ASSEMBLE = {
+    "剧本摘要": {
+        "内容梗概.md": "# 内容梗概\n\n一句话：主角张三踏上旅程。\n\n全文梗概（示例）。",
+        "章节摘要.md": "# 章节摘要\n\n## 开端\n- 张三离开故乡。",
+        "主题分析.md": "# 主题分析\n\n主题：成长与抉择。",
+    },
+    "人物总览": "# 人物总览\n\n| 姓名 | 身份 | 定位 |\n|------|------|------|\n| 张三 | 旅人 | 主角 |",
+    "人物关系": "# 人物关系\n\n- 张三 — 同伴 — 李四",
+    "角色卡": [
+        {
+            "姓名": "张三",
+            "描述": "主角，旅人。\n\n## 经历时间线\n1. 离开故乡",
+            "性格": "坚韧",
+            "场景": "雾镇",
+            "开场白": "我要找回我的名字。",
+            "对话示例": "",
+            "标签": ["主角", "旅人"],
+        }
+    ],
+    "世界设定": "# 世界设定\n\n雾镇及周边。",
+    "世界条目": [
+        {"关键词": ["雾镇", "小镇"], "内容": "终年有雾的小镇", "类别": "地点", "备注": ""}
+    ],
 }
 
 PASS_REPORT = {
@@ -72,7 +78,7 @@ class MockLLM:
         if task == "analyze":
             return AIMessage(content=json.dumps(SAMPLE_ANALYSIS, ensure_ascii=False))
         if task == "assemble":
-            return AIMessage(content=json.dumps({"outputs": SAMPLE_OUTPUTS}, ensure_ascii=False))
+            return AIMessage(content=json.dumps(SAMPLE_ASSEMBLE, ensure_ascii=False))
         if task == "review":
             self.review_calls += 1
             if self.review_mode == "fail_then_pass" and self.review_calls == 1:

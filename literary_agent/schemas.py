@@ -54,9 +54,39 @@ class ReviewReport(BaseModel):
     修订意见: str = ""
 
 
-class AssembleOutput(BaseModel):
-    """成稿输出：相对路径 → 内容 的扁平映射。"""
+class CharacterCard(BaseModel):
+    """角色卡（酒馆 chara_card_v2 的语义字段）。"""
 
     model_config = ConfigDict(extra="ignore")
 
-    outputs: dict[str, str] = Field(default_factory=dict)
+    姓名: str = ""
+    描述: str = ""  # 完整档案：身份/外貌/性格/能力/关系/经历时间线/动机/转变
+    性格: str = ""
+    场景: str = ""
+    开场白: str = ""
+    对话示例: str = ""
+    标签: list[str] = Field(default_factory=list)
+
+
+class WorldEntry(BaseModel):
+    """世界书条目（酒馆 World Info 的语义字段）。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    关键词: list[str] = Field(default_factory=list)
+    内容: str = ""
+    类别: str = ""  # 地点|势力|规则|时间线|物品|术语|背景
+    备注: str = ""
+
+
+class AssembleOutput(BaseModel):
+    """成稿输出（结构化，由 tavern.build_outputs 落成文件）。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    剧本摘要: dict[str, str] = Field(default_factory=dict)
+    人物总览: str = ""
+    人物关系: str = ""
+    角色卡: list[CharacterCard] = Field(default_factory=list)
+    世界设定: str = ""
+    世界条目: list[WorldEntry] = Field(default_factory=list)

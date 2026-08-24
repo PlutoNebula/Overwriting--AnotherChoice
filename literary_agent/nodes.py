@@ -7,6 +7,7 @@ from .chunking import chunk_text
 from .llm import call_json
 from .schemas import AssembleOutput, ChunkAnalysis, ReviewReport
 from .storage import read_text, write_all
+from .tavern import build_outputs
 
 
 def load_node(state: dict, settings) -> dict:
@@ -51,7 +52,8 @@ def assemble_node(state: dict, llm) -> dict:
     user = prompts.build_assemble_user(work_name, analyses, feedback)
     try:
         out = call_json(llm, prompts.ASSEMBLE_SYSTEM, user, AssembleOutput)
-        return {"outputs": out.outputs, "revision_count": revision_count, "status": "assembled"}
+        outputs = build_outputs(out)
+        return {"outputs": outputs, "revision_count": revision_count, "status": "assembled"}
     except Exception as e:  # noqa: BLE001
         return {
             "outputs": state.get("outputs", {}),

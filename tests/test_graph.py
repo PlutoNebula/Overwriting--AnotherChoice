@@ -23,8 +23,9 @@ def test_end_to_end_pass(tmp_dir):
     assert final["review_passed"] is True
     work_dir = Path(final["work_dir"])
     assert (work_dir / "剧本摘要" / "内容梗概.md").exists()
-    assert (work_dir / "人物信息" / "张三.md").exists()
-    assert (work_dir / "世界书" / "worldbook.json").exists()
+    assert (work_dir / "人物信息" / "张三.json").exists()
+    assert (work_dir / "人物信息" / "人物总览.md").exists()
+    assert (work_dir / "世界书" / "world_info.json").exists()
     assert (work_dir / "评测报告.md").exists()
     assert (work_dir / "_meta.json").exists()
 
