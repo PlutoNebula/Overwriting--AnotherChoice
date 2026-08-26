@@ -917,16 +917,11 @@
     },
 
     callBackendChapter: function (payload) {
-      var self = this;
-      var ai = (OW.Store.get() || {}).ai || {};
-      if (ai.model === 'demo' && !ai.connected) {
-        return new Promise(function (resolve) {
-          w.setTimeout(function () { resolve(self._stubChapter(null, null, null, payload)); }, 220);
-        });
-      }
+      /* 直接打后端；后端未连或超时由外层 catch 落到 _stubChapter。
+         不再用 ai.model==='demo' 短路 —— 那是老流程用于纯离线演示的开关。 */
       return new Promise(function (resolve, reject) {
         var ctrl = new w.AbortController();
-        var timer = w.setTimeout(function () { ctrl.abort(); }, 30000);
+        var timer = w.setTimeout(function () { ctrl.abort(); }, 90000);
         fetch(API + '/api/overwrite/chapter', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -994,18 +989,12 @@
        后端调用
        ================================================================== */
     callBackend: function (form) {
-      var self = this;
       var payload = this._buildPayload(form);
-      // 如果 store 里明确关闭了 AI，直接走 stub
-      var ai = (OW.Store.get() || {}).ai || {};
-      if (ai.model === 'demo' && !ai.connected) {
-        return new Promise(function (resolve) {
-          w.setTimeout(function () { resolve(self.stubResult(form)); }, 320);
-        });
-      }
+      /* 直接打后端；后端未连 / 超时由外层 catch 落到 stubResult。
+         不再用 ai.model==='demo' 短路 —— 那是老流程用于纯离线演示的开关。 */
       return new Promise(function (resolve, reject) {
         var ctrl = new w.AbortController();
-        var timer = w.setTimeout(function () { ctrl.abort(); }, 25000);
+        var timer = w.setTimeout(function () { ctrl.abort(); }, 90000);
         fetch(API + '/api/overwrite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
