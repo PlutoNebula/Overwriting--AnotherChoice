@@ -17,6 +17,7 @@
       this.el = root;
       root.innerHTML =
         '<div class="lib">' +
+          OW.SVG.libStars() +
           '<header class="lib-top">' +
             '<div class="lib-brand">' +
               '<div class="en gilt">Overwriting</div>' +
@@ -167,11 +168,20 @@
       D.getElementById('libResume').innerHTML = pick ? this.resumeHtml(pick) : '';
       if (pick) {
         var self = this;
+        /* 首屏「继续阅读」入口与书卡同一节奏：先播短促的符文法阵再跳转。 */
+        var heroJump = function (fn) {
+          var go = D.getElementById('resumeGo');
+          if (!go || go.__jump) return;
+          go.__jump = true;
+          w.setTimeout(function () { go.__jump = false; fn(); }, 280);
+        };
         D.getElementById('resumeGo').addEventListener('click', function () {
-          OW.App.openBook(pick.id);
+          heroJump(function () { OW.App.openBook(pick.id); });
         });
         var fin = D.getElementById('resumeFin');
-        if (fin) fin.addEventListener('click', function () { OW.App.openFinale(pick.id); });
+        if (fin) fin.addEventListener('click', function () {
+          heroJump(function () { OW.App.openFinale(pick.id); });
+        });
       }
 
       /* 书架 */
@@ -198,7 +208,13 @@
             var b = OW.Store.book(id);
             if (!b) return;
             if (b.locked) return OW.toast(OW.COPY.locked, 'warn');
-            OW.App.openBook(id);
+            if (card.__jump) return;                      // 双击保护
+            card.__jump = true;
+            // 留 280ms 播完符文法阵，再进入阅读器；避免动画残留到下一页。
+            w.setTimeout(function () {
+              card.__jump = false;
+              OW.App.openBook(id);
+            }, 280);
           });
           var del = card.querySelector('[data-del]');
           if (del) del.addEventListener('click', function (e) {

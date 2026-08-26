@@ -57,6 +57,35 @@
       'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
   };
 
+  /* Four inscription emblems used by the tarot-style card frame. */
+  SVG.tarotIcon = function (id, size) {
+    var s = size || 88, d = {
+      echo:
+        '<path d="M13 40C5 31 7 19 17 15C22 25 21 34 13 40Z"/>' +
+        '<path d="M16 38C11 32 11 24 16 18"/>' +
+        '<path d="M18 18l4 3M19 24l4 2"/>' +
+        '<path d="M28 28a6 6 0 015 4"/>' +
+        '<path d="M25 21a13 13 0 0110 9"/>' +
+        '<path d="M22 14a19 19 0 0114 13"/>',
+      query:
+        '<path d="M19 8a6 6 0 1112 0c0 4-4 4-4 8"/>' +
+        '<circle cx="25" cy="23" r="1.1"/>' +
+        '<path d="M27 44h-8"/>' +
+        '<path d="M25 44v-7h-4v7"/>' +
+        '<path d="M23 37c2 3 4 5 4 8a4 4 0 01-8 0c0-3 2-5 4-8z"/>',
+      link:
+        '<path d="M11 13v9M6.5 17.5h9M36 8v9M31.5 12.5h9M25 30v9M20.5 34.5h9"/>' +
+        '<path d="M11 17.5L36 12.5M36 12.5L25 34.5M25 34.5L11 17.5" stroke-dasharray="2.5 2.6"/>',
+      cont:
+        '<path d="M12 12c-5 3-7 8-7 14 5 3 9 2 12-1 3 3 7 4 12 1 0-6-2-11-7-14-2 3-3 6-5 6-2 0-3-3-5-6z"/>' +
+        '<path d="M6 34h12M24 34h16"/>' +
+        '<path d="M31 27l3 9M35 25l2 4"/>'
+    }[id] || '';
+    return '<svg viewBox="0 0 48 48" width="' + s + '" height="' + s +
+      '" fill="none" stroke="currentColor" stroke-width="1.1" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  };
+
   /* ---------- 花饰分隔（页头 / 封面用）---------- */
   SVG.ornament = function () {
     return '<svg viewBox="0 0 120 12" fill="none" stroke="currentColor" ' +
@@ -307,6 +336,47 @@
      实测版面：书脊在画面 50%，双页书居中占中间约 60% 宽。
      五组路径：spine / pages / corners / runes / decor —— 供 intro.js 按序描绘。
      ========================================================================== */
+  /* Quiet star-particle layer used behind the library content. */
+  SVG.libStars = function () {
+    var r = rng(41), out = '';
+    var cool = ['#E9E6D8', '#D7E0EC', '#AFC8DC', '#E6E0F2'];
+    var accent = ['#C7A45A', '#53A7B8'];
+
+    function dots(cls, count, rMin, rMax, dMin, dMax) {
+      var s = '';
+      for (var i = 0; i < count; i++) {
+        var x = (r() * 1920).toFixed(0), y = (r() * 980).toFixed(0);
+        var rr = (rMin + r() * (rMax - rMin)).toFixed(2);
+        var d = (dMin + r() * (dMax - dMin)).toFixed(1);
+        var dl = (r() * dMax).toFixed(1);
+        var col = r() < .12 ? accent[(r() * 2) | 0] : cool[(r() * 4) | 0];
+        s += '<circle class="' + cls + '" cx="' + x + '" cy="' + y + '" r="' + rr + '" ' +
+          'fill="' + col + '" style="animation-duration:' + d + 's;animation-delay:' + dl + 's"/>';
+      }
+      return s;
+    }
+
+    out += dots('star-far', 140, .5, 1.1, 3, 8);
+    out += dots('star-mid', 50, 1.2, 2.2, 2, 5);
+    for (var i = 0; i < 8; i++) {
+      var x = (r() * 1920).toFixed(0), y = (r() * 980).toFixed(0);
+      var rr = (2 + r() * 1.5).toFixed(2);
+      var d = (2.5 + r() * 2.5).toFixed(1), dl = (r() * 5).toFixed(1);
+      var glow = (rr * 4.2).toFixed(1), long = (rr * 7).toFixed(1), short = (rr * 4).toFixed(1);
+      out += '<g class="star-spike" transform="translate(' + x + ' ' + y + ')">' +
+        '<g class="spike" style="animation-duration:' + d + 's;animation-delay:' + dl + 's">' +
+          '<circle r="' + glow + '" fill="#E9E6D8" fill-opacity=".16"/>' +
+          '<path d="M-' + long + ' 0H' + long + 'M0 -' + long + 'V' + long + '" stroke="#E9E6D8" ' +
+            'stroke-width=".6" stroke-linecap="round" opacity=".85"/>' +
+          '<path d="M-' + short + ' ' + short + 'L' + short + ' -' + short + 'M-' + short + ' -' + short + 'L' + short + ' ' + short + '" ' +
+            'stroke="#E9E6D8" stroke-width=".4" opacity=".5"/>' +
+          '<circle r="' + rr + '" fill="#F4F0E2"/>' +
+        '</g></g>';
+    }
+    return '<svg class="lib-stars" viewBox="0 0 1920 1080" ' +
+      'preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + out + '</svg>';
+  };
+
   SVG.openBook = function () {
     // 视口 1920×1080；书体 x 从 384 到 1536（60% 宽），书脊 x=960
     var P = {

@@ -289,16 +289,55 @@
 .chip:hover{color:var(--tx-hi)}
 .chip[aria-pressed="true"]{background:rgba(216,197,154,.09);color:var(--tx-hi);border-color:var(--ln-copper)}
 
-.ins-list{flex:1;min-height:0;overflow-y:auto;padding:var(--s4) var(--s5) var(--s7)}
+/* ---------- 铭文牌组：上方抽出详情 + 下方扇形卡组 ---------- */
+.ins-gallery{
+  flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;
+  padding:0 var(--s5) var(--s3);
+}
+.ins-gallery>.empty{margin:auto}
 
-/* 铭文卡：左侧色条 = 类型，卡内有图标，双维度可辨 */
+/* 未抽牌时保留呼吸空间，避免一打开面板就塞满文字。 */
+.ins-feature{
+  flex:0 0 clamp(138px,25vh,220px);min-height:0;
+  display:flex;align-items:center;padding:var(--s4) 0 var(--s2);
+  perspective:900px;
+}
+.ins-feature-empty{
+  width:100%;height:100%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:var(--s2);text-align:center;color:var(--tx-faint);
+  border:1px dashed rgba(216,197,154,.13);border-radius:var(--r-lg);
+  background:radial-gradient(circle at 50% 42%,rgba(101,78,145,.1),transparent 68%);
+}
+.ins-feature-empty strong{font-size:var(--fs-xs);font-weight:400;letter-spacing:.12em;color:var(--tx-low)}
+.ins-feature-empty>span:last-child{max-width:28em;font-size:var(--fs-2xs);line-height:1.7;letter-spacing:.04em}
+.ins-feature-sigil{color:var(--dusk-gold);opacity:.48}
+.ins-feature-sigil svg{width:32px;height:32px}
+
+/* 牌组区域使用底部中心作为共同转轴，卡片才会形成真正的扇面。 */
+.ins-deck-shell{
+  position:relative;flex:1;min-height:220px;overflow:hidden;
+  border-top:1px solid rgba(216,197,154,.08);
+}
+.ins-deck{
+  position:absolute;inset:0 0 22px;
+  perspective:1000px;isolation:isolate;
+}
+.ins-deck-hint{
+  position:absolute;left:0;right:0;bottom:0;text-align:center;
+  font-family:var(--f-display);font-size:var(--fs-2xs);letter-spacing:.18em;
+  color:var(--tx-faint);opacity:.74;pointer-events:none;
+}
+
+/* 铭文卡通用骨架：颜色只做边缘和能量光，不替代文字信息。 */
 .icard{
   position:relative;padding:var(--s4) var(--s4) var(--s4) var(--s5);
-  border:1px solid var(--ln-hair);border-radius:var(--r-md);margin-bottom:var(--s3);
-  background:rgba(5,7,14,.42);
-  transition:border-color var(--t-fast) var(--ease),transform var(--t-fast) var(--ease);
+  border:1px solid color-mix(in srgb,var(--c,var(--dusk-gold)) 42%,var(--ln-hair));
+  border-radius:var(--r-md);overflow:hidden;
+  background:
+    radial-gradient(circle at 82% 12%,color-mix(in srgb,var(--c) 13%,transparent),transparent 42%),
+    linear-gradient(155deg,rgba(23,28,54,.98),rgba(7,11,23,.98));
+  box-shadow:0 14px 34px rgba(0,0,0,.28),inset 0 0 0 1px rgba(255,255,255,.025);
 }
-.icard:hover{border-color:var(--ln-copper);transform:translateX(-2px)}
 .icard::before{
   content:"";position:absolute;left:0;top:var(--s3);bottom:var(--s3);width:3px;
   border-radius:0 3px 3px 0;background:var(--c,var(--dusk-gold));
@@ -319,6 +358,138 @@
 .icard .body{font-size:var(--fs-sm);line-height:1.9;color:var(--tx-hi);white-space:pre-wrap}
 .icard .acts{display:flex;gap:var(--s1);margin-top:var(--s3);opacity:0;transition:opacity var(--t-fast) var(--ease)}
 .icard:hover .acts,.icard:focus-within .acts{opacity:1}
+
+/* V2 tarot frame, combined with the V2.5 fan-and-draw interaction. */
+.icard.tarot{
+  border:1px solid color-mix(in srgb,var(--c,var(--dusk-gold)) 62%,transparent);
+  background:
+    radial-gradient(130% 110% at 88% 6%,
+      color-mix(in srgb,var(--c,var(--dusk-gold)) 13%,transparent),transparent 58%),
+    linear-gradient(160deg,rgba(12,17,32,.96),rgba(5,7,14,.9));
+  box-shadow:0 14px 34px rgba(0,0,0,.3),inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.icard.tarot::before{display:none}
+.icard.tarot::after{
+  content:"";position:absolute;inset:5px;pointer-events:none;
+  border:1px solid color-mix(in srgb,var(--c,var(--dusk-gold)) 26%,transparent);
+  border-radius:calc(var(--r-md) - 3px);
+}
+.icard.tarot:hover{border-color:var(--c,var(--dusk-gold))}
+.tc{position:absolute;width:15px;height:15px;pointer-events:none;z-index:2}
+.tc.tl{left:8px;top:8px;border-left:1px solid var(--c);border-top:1px solid var(--c);border-radius:4px 0 0 0}
+.tc.tr{right:8px;top:8px;border-right:1px solid var(--c);border-top:1px solid var(--c);border-radius:0 4px 0 0}
+.tc.bl{left:8px;bottom:8px;border-left:1px solid var(--c);border-bottom:1px solid var(--c);border-radius:0 0 0 4px}
+.tc.br{right:8px;bottom:8px;border-right:1px solid var(--c);border-bottom:1px solid var(--c);border-radius:0 0 4px 0}
+.t-hd{display:flex;align-items:baseline;gap:var(--s2);margin-bottom:var(--s3)}
+.t-num{font-family:var(--f-display);font-size:var(--fs-md);color:var(--c);letter-spacing:.06em;line-height:1}
+.t-nm{font-size:var(--fs-mono);letter-spacing:.22em;color:var(--tx-hi)}
+.t-when{font-size:var(--fs-2xs);color:var(--tx-faint);letter-spacing:.08em}
+.t-en{margin-left:auto;font-family:var(--f-display);font-size:var(--fs-2xs);letter-spacing:.18em;text-transform:uppercase;color:var(--tx-faint)}
+.t-emblem{position:absolute;right:18px;bottom:12px;pointer-events:none;color:var(--c);opacity:.13}
+.icard.tarot .t-hd,.icard.tarot .quote,.icard.tarot .body,.icard.tarot .acts{position:relative;z-index:1}
+.icard.tarot .quote{border-left:0;padding-left:0;color:var(--tx-mid)}
+
+/* 牌组卡：静止时收拢，经过整个牌组时按更大的角度和水平间距展开。 */
+.icard--deck{
+  position:absolute;left:50%;bottom:16px;z-index:var(--z);
+  width:min(70%,250px);height:clamp(142px,20vh,176px);margin:0;
+  cursor:pointer;user-select:none;transform-origin:50% 118%;
+  transform:
+    translateX(-50%) translateX(var(--rest-x)) translateY(var(--rest-y))
+    rotate(var(--rest-r));
+  transition:
+    transform 420ms cubic-bezier(.2,.76,.2,1),opacity 260ms ease,
+    border-color 220ms ease,box-shadow 220ms ease;
+  will-change:transform;
+}
+.ins-deck:hover .icard--deck,
+.ins-deck:focus-within .icard--deck{
+  transform:
+    translateX(-50%) translateX(var(--open-x)) translateY(var(--open-y))
+    rotate(var(--open-r));
+}
+.ins-deck .icard--deck:hover,
+.ins-deck .icard--deck:focus-visible{
+  z-index:80;
+  transform:
+    translateX(-50%) translateX(calc(var(--open-x) + var(--hover-x)))
+    translateY(calc(var(--open-y) - 24px)) rotate(var(--hover-r)) scale(1.025);
+  outline:0;border-color:var(--c);box-shadow:
+    0 22px 42px rgba(0,0,0,.48),
+    0 0 20px color-mix(in srgb,var(--c) 24%,transparent),
+    inset 0 0 0 1px color-mix(in srgb,var(--c) 22%,transparent);
+}
+.icard--deck.is-selected{
+  opacity:.22;filter:saturate(.55);
+  border-style:dashed;
+}
+.icard--deck .top,.icard--deck .t-hd{margin-bottom:var(--s2)}
+.icard--deck .quote{
+  margin-bottom:var(--s2);padding-left:var(--s2);font-size:var(--fs-2xs);
+  -webkit-line-clamp:1;
+}
+.icard--deck .body{
+  position:relative;z-index:1;font-size:var(--fs-xs);line-height:1.72;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.icard--deck .kind-en{
+  position:absolute;right:var(--s3);top:var(--s3);
+  font-family:var(--f-display);font-size:9px;letter-spacing:.16em;color:var(--c);opacity:.72;
+}
+.deck-corner{
+  position:absolute;right:13px;bottom:8px;color:var(--c);opacity:.1;transform:rotate(-8deg);
+}
+.deck-corner svg{width:42px;height:42px}
+
+/* 被抽出的卡片固定在上方，使用完整内容与操作按钮。 */
+.icard--featured{
+  width:100%;max-height:100%;margin:0;overflow-y:auto;
+  animation:insDrawCard 480ms cubic-bezier(.16,.78,.18,1) both;
+  box-shadow:0 18px 42px rgba(0,0,0,.36),0 0 22px color-mix(in srgb,var(--c) 16%,transparent);
+}
+.icard--featured::after{
+  content:"";position:absolute;inset:5px;border:1px solid color-mix(in srgb,var(--c) 22%,transparent);
+  border-radius:calc(var(--r-md) - 3px);pointer-events:none;
+}
+.icard--featured .top,.icard--featured .t-hd{padding-right:28px}
+.icard--featured .t-hd{margin-bottom:var(--s2)}
+.icard--featured .kind-en{
+  font-family:var(--f-display);font-size:9px;letter-spacing:.16em;color:var(--c);opacity:.7;
+}
+.icard--featured .body{font-size:var(--fs-xs);line-height:1.78}
+.icard--featured .acts{opacity:1;position:relative;z-index:2}
+.feature-collapse{
+  position:absolute;right:8px;top:8px;z-index:3;width:26px;height:26px;
+  display:grid;place-items:center;border:0;border-radius:50%;cursor:pointer;
+  background:rgba(216,197,154,.07);color:var(--tx-low);
+  transition:background-color var(--t-fast) var(--ease),color var(--t-fast) var(--ease);
+}
+.feature-collapse:hover{background:rgba(216,197,154,.15);color:var(--tx-hi)}
+.feature-collapse svg{width:14px;height:14px}
+.icard.is-pulse{animation:insCardPulse 1.15s ease both}
+
+@keyframes insDrawCard{
+  from{opacity:.1;transform:translateY(58px) rotate(3deg) scale(.88)}
+  68%{opacity:1;transform:translateY(-4px) rotate(-.6deg) scale(1.012)}
+  to{opacity:1;transform:none}
+}
+@keyframes insCardPulse{
+  0%,100%{border-color:color-mix(in srgb,var(--c) 42%,var(--ln-hair))}
+  35%{border-color:var(--c);box-shadow:0 18px 42px rgba(0,0,0,.4),0 0 28px color-mix(in srgb,var(--c) 28%,transparent)}
+}
+
+/* 矮屏优先保证详情与牌组都能看见。 */
+@media (max-height:800px){
+  .ins-head{padding-top:var(--s3);padding-bottom:var(--s3)}
+  .ins-filter{padding-top:var(--s3)}
+  .ins-feature{flex-basis:clamp(175px,30vh,215px)}
+  .ins-deck-shell{min-height:170px}
+  .icard--deck{height:140px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .icard--deck,.icard--featured{transition:none;animation:none}
+}
 
 /* 编辑器 */
 .ins-editor{

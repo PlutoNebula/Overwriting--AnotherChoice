@@ -140,7 +140,10 @@ h1,h2,h3,h4{font-weight:500;line-height:var(--lh-tight);letter-spacing:.01em}
 }
 .btn:hover::before{translate:120% 0}
 .btn:hover{border-color:var(--dusk-gold);color:var(--parch-hi)}
-.btn:active{transform:translateY(1px)}
+.btn:active{
+  transform:scale(.97);
+  transition:transform 160ms var(--ease-out);
+}
 .btn[disabled],.btn[aria-disabled="true"]{
   opacity:.42;cursor:not-allowed;transform:none;
   border-color:var(--ln-copper-soft);color:var(--tx-low);
@@ -167,6 +170,80 @@ h1,h2,h3,h4{font-weight:500;line-height:var(--lh-tight);letter-spacing:.01em}
 .btn--icon:hover{color:var(--dusk-gold);border-color:var(--ln-copper-soft)}
 .btn--icon.is-on{color:var(--dusk-gold);border-color:var(--ln-gold);background:rgba(199,164,90,.09)}
 .btn svg{width:16px;height:16px;flex:none}
+
+/* ---- 全站主操作的魔法符文反馈 ----
+   JS 把一次性 SVG 放在真实点击位置；这里仅动画 transform / opacity。
+   金色主按钮使用略小版本，书卡仍使用完整尺寸。 */
+.rune-gate{
+  position:fixed;
+  width:132px;height:132px;
+  margin:-66px 0 0 -66px;
+  z-index:calc(var(--z-modal) + 2);
+  pointer-events:none;
+  color:var(--dusk-gold);
+  opacity:0;
+  transform-origin:50% 50%;
+  animation:runeGateAppear 280ms var(--ease-out) both;
+}
+.rune-gate--button{
+  width:108px;height:108px;
+  margin:-54px 0 0 -54px;
+}
+.rune-gate svg{
+  width:100%;height:100%;display:block;overflow:visible;
+  filter:drop-shadow(0 0 8px rgba(199,164,90,.46));
+}
+.rune-gate circle,
+.rune-gate path{
+  vector-effect:non-scaling-stroke;
+  stroke:currentColor;
+  stroke-width:1.15;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  fill:none;
+}
+.rune-gate__outer{
+  transform-origin:60px 60px;
+  animation:runeRingOuter 280ms var(--ease-out) both;
+}
+.rune-gate__inner{
+  transform-origin:60px 60px;
+  color:var(--teal-magic);
+  animation:runeRingInner 280ms var(--ease-out) both;
+}
+.rune-gate__glyphs{color:var(--accent-tx)}
+.rune-gate .rune-gate__core{
+  fill:rgba(199,164,90,.22);
+  stroke-width:1.35;
+}
+
+@keyframes runeGateAppear{
+  0%{opacity:0;transform:scale(.9)}
+  22%{opacity:.92}
+  62%{opacity:.78}
+  100%{opacity:0;transform:scale(1.08)}
+}
+@keyframes runeRingOuter{
+  from{transform:rotate(-8deg) scale(.96)}
+  to{transform:rotate(10deg) scale(1.02)}
+}
+@keyframes runeRingInner{
+  from{transform:rotate(7deg) scale(.93)}
+  to{transform:rotate(-7deg) scale(1.03)}
+}
+
+/* 减少动态效果：保留一次短促闪现，移除旋转与缩放。 */
+@media (prefers-reduced-motion:reduce){
+  .rune-gate{animation:runeGateFade 160ms linear both}
+  .rune-gate__outer,
+  .rune-gate__inner{animation:none}
+  .btn:active{transform:none}
+}
+@keyframes runeGateFade{
+  0%{opacity:0;transform:none}
+  35%{opacity:.75;transform:none}
+  100%{opacity:0;transform:none}
+}
 
 /* ---- 卡片 / 面板：深色皮革 + 旧铜描边 ---- */
 .panel{

@@ -9,6 +9,31 @@
   padding:var(--s6) var(--s8) 0;
 }
 
+/* ---------- 背景星层：开场之后书库自己的星闪（与开场同款明显度） ----------
+   只动 opacity（sfFar/sfMid/sfSpike 关键帧定义在 intro.css，全站可用）；
+   整层 .7：书库是长时间停留页，比开场（1.0）留一点克制。 */
+.lib-stars{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  opacity:.7;
+}
+.lib-top,.lib-scroll{position:relative}   /* 内容盖在星层之上 */
+#view-library .star-far{opacity:.45;animation:libStarFar 4s ease-in-out infinite}
+#view-library .star-mid{opacity:.85;animation:libStarMid 3s ease-in-out infinite}
+#view-library .star-spike .spike{
+  opacity:.9;animation:libStarSpike 6s ease-in-out infinite;
+}
+@keyframes libStarFar{0%,100%{opacity:.2}50%{opacity:.6}}
+@keyframes libStarMid{0%,100%{opacity:.25}45%{opacity:1}70%{opacity:.45}}
+@keyframes libStarSpike{
+  0%,70%,100%{opacity:.2;transform:scale(.62)}
+  82%{opacity:1;transform:scale(1)}
+}
+/* 减少动态：静态可见（停在 resting opacity），不闪 */
+@media (prefers-reduced-motion:reduce){
+  #view-library .star-far,#view-library .star-mid,
+  #view-library .star-spike .spike{animation:none!important}
+}
+
 /* 左右边缘的亮元素（实测亮元素只在最左 / 最右边缘）*/
 .lib::before,.lib::after{
   content:"";position:absolute;top:14%;bottom:14%;width:1px;pointer-events:none;
@@ -111,6 +136,10 @@
 }
 .bcard:hover{transform:translateY(-5px);border-color:var(--ln-gold);box-shadow:var(--sh-lift),var(--glow-gold)}
 .bcard:hover .bcard-cover svg{transform:scale(1.03)}
+.bcard:not(.is-locked):not(.bcard--add):active{
+  transform:scale(.97);
+  transition:transform 160ms var(--ease-out);
+}
 .bcard-cover{position:relative;aspect-ratio:3/4.1;overflow:hidden;background:var(--leather-1)}
 .bcard-cover svg{width:100%;height:100%;display:block;transition:transform var(--t-slow) var(--ease)}
 .bcard-cover::after{                /* 顶光，压住卡片下缘 */
@@ -228,4 +257,8 @@
   padding:var(--s3) var(--s4);border-radius:var(--r-md);
   border:1px solid rgba(83,167,184,.3);background:rgba(83,167,184,.07);
   font-size:var(--fs-mono);line-height:1.8;color:var(--tx-mid);
+}
+
+@media (prefers-reduced-motion:reduce){
+  .bcard:not(.is-locked):not(.bcard--add):active{transform:none}
 }

@@ -23,6 +23,7 @@
     panel: 'toc',          // 唯一的面板状态（含 null = 全收起）
     asideOn: true,         // 铭文面板：右栏，与左侧五个面板同属互斥集合的一员
     filter: 'all',
+    selectedIns: null,     // 从扇形牌组中抽出、在上方完整展示的铭文 id
     editing: null,         // {mode:'new'|'edit', ...}
     sel: null,             // 当前选区 {ch,para,s,e,quote}
 
@@ -130,6 +131,7 @@
       if (b.locked) { OW.toast(OW.COPY.locked, 'warn'); return OW.App.go('library'); }
       this.bookId = bookId;
       this.filter = 'all';
+      this.selectedIns = null;
       this.editing = null;
       this.sel = null;
       this.stopTts();
@@ -553,6 +555,11 @@
       if (this.filter !== 'all') {
         list = list.filter(function (i) { return i.kind === self.filter; });
       }
+      var selected = this.selectedIns ? find(b, this.selectedIns) : null;
+      if (selected && !list.some(function (i) { return i.id === selected.id; })) {
+        selected = null;
+        this.selectedIns = null;
+      }
 
       aside.innerHTML =
         '<div class="ins-head">' +
@@ -574,8 +581,24 @@
               ' ' + (pr.kinds[k.id] || 0) + '</button>';
           }).join('') +
         '</div>' +
-        '<div class="ins-list" id="rdInsList">' +
-          (list.length ? list.map(function (i) { return self.cardHtml(b, i); }).join('') :
+        '<div class="ins-gallery' + (selected ? ' has-feature' : '') + '" id="rdInsList">' +
+          (list.length ?
+            '<section class="ins-feature" aria-live="polite">' +
+              (selected ? self.cardHtml(b, selected, 'featured') :
+                '<div class="ins-feature-empty">' +
+                  '<span class="ins-feature-sigil">' + SVG.icon('ins', 32) + '</span>' +
+                  '<strong>从牌组中抽出一枚铭文</strong>' +
+                  '<span>将鼠标移到下方牌组展开，点击卡片即可完整查看。</span>' +
+                '</div>') +
+            '</section>' +
+            '<section class="ins-deck-shell" aria-label="铭文牌组，共 ' + list.length + ' 枚">' +
+              '<div class="ins-deck" data-count="' + list.length + '">' +
+                list.map(function (i, index) {
+                  return self.cardHtml(b, i, 'deck', index, list.length);
+                }).join('') +
+              '</div>' +
+              '<div class="ins-deck-hint">悬停展开 · 点击抽取</div>' +
+            '</section>' :
             '<div class="empty">' + SVG.icon('ins', 40) + '<div>' +
               (b.inscriptions.length ? '这一类还没有铭文。' : OW.COPY.noIns) +
             '</div></div>') +
@@ -587,32 +610,97 @@
       });
       D.getElementById('rdFilter').addEventListener('click', function (e) {
         var c = e.target.closest('.chip[data-f]');
-        if (c) { self.filter = c.getAttribute('data-f'); self.render(); }
+        if (c) {
+          self.filter = c.getAttribute('data-f');
+          var picked = self.selectedIns ? find(b, self.selectedIns) : null;
+          if (picked && self.filter !== 'all' && picked.kind !== self.filter) self.selectedIns = null;
+          self.render();
+        }
       });
       D.getElementById('rdInsList').addEventListener('click', function (e) {
         var card = e.target.closest('.icard'); if (!card) return;
         var id = card.getAttribute('data-id');
-        if (e.target.closest('[data-edit]')) {
+        if (e.target.closest('[data-collapse]')) {
+          self.selectedIns = null;
+          self.renderAside(b);
+        } else if (e.target.closest('[data-edit]')) {
           var ins = find(b, id);
           if (ins) self.openEditor('edit', ins);
         } else if (e.target.closest('[data-del]')) {
           self.delIns(id);
         } else {
+          self.selectedIns = self.selectedIns === id ? null : id;
+          self.renderAside(b);
           self.focusIns(id);
         }
+      });
+      D.getElementById('rdInsList').addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var card = e.target.closest('.icard--deck'); if (!card) return;
+        e.preventDefault();
+        card.click();
       });
 
       if (this.editing) this.paintEditor();
     },
 
-    cardHtml: function (b, i) {
+    cardHtml: function (b, i, mode, index, total) {
       var k = OW.kindOf(i.kind);
-      return '<article class="icard" data-id="' + i.id + '" style="--c:' + k.color + '">' +
-        '<div class="top">' +
-          '<span class="kind">' + SVG.kindIcon(k.id, 12) + k.name + '</span>' +
-          '<span class="when">第 ' + (i.ch + 1) + ' 节</span>' +
+      var tarot = {
+        echo:  { n: 'I', en: 'Echo' },
+        query: { n: 'II', en: 'Query' },
+        link:  { n: 'III', en: 'Star-Link' },
+        cont:  { n: 'IV', en: 'Coda' }
+      }[i.kind] || { n: '·', en: k.en || '' };
+      if (mode === 'deck') {
+        var middle = (total - 1) / 2;
+        var offset = index - middle;
+        var restAngleStep = total > 1 ? Math.min(7, 24 / (total - 1)) : 0;
+        var openAngleStep = total > 1 ? Math.min(11.5, 34 / (total - 1)) : 0;
+        var restXStep = total > 1 ? Math.min(17, 64 / (total - 1)) : 0;
+        var openXStep = total > 1 ? Math.min(21, 68 / (total - 1)) : 0;
+        var restY = Math.abs(offset) * 4;
+        var openY = Math.abs(offset) * 7 - 13;
+        var deckStyle = '--c:' + k.color +
+          ';--rest-x:' + (offset * restXStep).toFixed(1) + 'px' +
+          ';--rest-y:' + restY.toFixed(1) + 'px' +
+          ';--rest-r:' + (offset * restAngleStep).toFixed(1) + 'deg' +
+          ';--open-x:' + (offset * openXStep).toFixed(1) + 'px' +
+          ';--open-y:' + openY.toFixed(1) + 'px' +
+          ';--open-r:' + (offset * openAngleStep).toFixed(1) + 'deg' +
+          ';--hover-x:' + (offset === 0 ? 0 : (offset < 0 ? 10 : -10)).toFixed(1) + 'px' +
+          ';--hover-r:' + (offset * openAngleStep * 0.78).toFixed(1) + 'deg' +
+          ';--z:' + (index + 1);
+        return '<article class="icard tarot icard--deck' +
+          (this.selectedIns === i.id ? ' is-selected' : '') + '" data-id="' + i.id +
+          '" tabindex="0" role="button" aria-label="抽出' + k.name + '铭文：' +
+          SVG.esc(i.body.slice(0, 28)) + '" style="' + deckStyle + '">' +
+            '<i class="tc tl"></i><i class="tc tr"></i><i class="tc bl"></i><i class="tc br"></i>' +
+            '<div class="t-hd">' +
+              '<span class="t-num">' + tarot.n + '</span>' +
+              '<span class="t-nm">' + k.name + '</span>' +
+              '<span class="t-when">第 ' + (i.ch + 1) + ' 节</span>' +
+              '<span class="t-en">' + tarot.en + '</span>' +
+            '</div>' +
+            '<div class="t-emblem">' + SVG.tarotIcon(k.id, 72) + '</div>' +
+            '<div class="quote">「' + SVG.esc(i.quote) + '」</div>' +
+            '<div class="body">' + SVG.esc(i.body) + '</div>' +
+          '</article>';
+      }
+
+      return '<article class="icard tarot icard--featured" data-id="' + i.id +
+        '" style="--c:' + k.color + '">' +
+        '<button class="feature-collapse" data-collapse aria-label="把这枚铭文放回牌组" ' +
+          'title="放回牌组">' + SVG.icon('close', 14) + '</button>' +
+        '<i class="tc tl"></i><i class="tc tr"></i><i class="tc bl"></i><i class="tc br"></i>' +
+        '<div class="t-hd">' +
+          '<span class="t-num">' + tarot.n + '</span>' +
+          '<span class="t-nm">' + k.name + '</span>' +
+          '<span class="t-when">第 ' + (i.ch + 1) + ' 节</span>' +
+          '<span class="t-en">' + tarot.en + '</span>' +
         '</div>' +
-        '<div class="quote">' + SVG.esc(i.quote) + '</div>' +
+        '<div class="t-emblem">' + SVG.tarotIcon(k.id, 92) + '</div>' +
+        '<div class="quote">「' + SVG.esc(i.quote) + '」</div>' +
         '<div class="body">' + SVG.esc(i.body) + '</div>' +
         '<div class="acts">' +
           '<button class="btn btn--sm btn--ghost" data-edit>' + SVG.icon('edit', 13) + ' 编辑</button>' +
@@ -630,7 +718,8 @@
       if (!this.asideOn) { this.asideOn = true; this.panel = null; this.render(); }
 
       var mark = D.querySelector('.ins[data-id="' + id + '"]');
-      var card = D.querySelector('.icard[data-id="' + id + '"]');
+      var card = D.querySelector('.icard--featured[data-id="' + id + '"]') ||
+        D.querySelector('.icard[data-id="' + id + '"]');
       var all = D.querySelectorAll('.ins.is-focus');
       for (var i = 0; i < all.length; i++) all[i].classList.remove('is-focus');
       if (mark) {
@@ -639,8 +728,10 @@
       }
       if (card) {
         card.scrollIntoView({ block: 'nearest', behavior: OW.reduced() ? 'auto' : 'smooth' });
-        card.style.borderColor = 'var(--dusk-gold)';
-        w.setTimeout(function () { card.style.borderColor = ''; }, 1200);
+        card.classList.remove('is-pulse');
+        void card.offsetWidth;
+        card.classList.add('is-pulse');
+        w.setTimeout(function () { card.classList.remove('is-pulse'); }, 1200);
       }
     },
 
@@ -759,6 +850,7 @@
         ok: '确认删除', danger: true,
         onOk: function () {
           OW.Store.removeIns(b.id, id);
+          if (self.selectedIns === id) self.selectedIns = null;
           self.render();
           OW.toast('铭文已删除。');
         }
