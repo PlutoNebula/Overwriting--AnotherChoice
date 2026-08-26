@@ -800,6 +800,57 @@
   font-family:var(--f-serif);color:#6E5333;font-style:italic;letter-spacing:.06em;
   padding:1em 0;
 }
+
+/* ============================================================
+   命运之弦 · 推演中占位块
+   三根 SVG 弦沿羊皮纸横向流动，中央一枚金属节点缓慢呼吸。
+   替代掉此前的斜体文字占位，让"命运正在被扭转"落地成动效。
+   ============================================================ */
+.rd-fate-loom{
+  display:flex;flex-direction:column;align-items:center;gap:var(--s3);
+  padding:var(--s7) var(--s5);margin:1.2em 0;text-align:center;
+  border-top:1px solid rgba(122,88,50,.24);
+  border-bottom:1px solid rgba(122,88,50,.24);
+  background:
+    radial-gradient(120% 90% at 50% 50%,rgba(120,72,180,.06),transparent 70%);
+}
+.rd-fate-loom .rd-fate-strings{
+  width:min(320px,80%);height:88px;filter:drop-shadow(0 0 6px rgba(199,164,90,.28));
+}
+.rd-fate-loom .rd-fate-strings .s{
+  fill:none;stroke:url(#rdFateG);stroke-width:1.6;stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+  stroke-dasharray:6 6;
+  animation:rdFateFlow 3.2s linear infinite;
+}
+.rd-fate-loom .rd-fate-strings .s2{animation-duration:3.8s;animation-direction:reverse;opacity:.85}
+.rd-fate-loom .rd-fate-strings .s3{animation-duration:4.6s;opacity:.7}
+.rd-fate-loom .rd-fate-strings .knot{
+  fill:#C7A45A;stroke:#5A3E1F;stroke-width:.8;
+  animation:rdFateKnot 2.4s ease-in-out infinite;
+  transform-box:fill-box;transform-origin:center;
+}
+@keyframes rdFateFlow{
+  from{stroke-dashoffset:0}
+  to{stroke-dashoffset:-64}
+}
+@keyframes rdFateKnot{
+  0%,100%{opacity:.6;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.28)}
+}
+.rd-fate-loom .rd-fate-text{
+  font-family:var(--f-display);font-size:var(--fs-md);letter-spacing:.18em;
+  background:linear-gradient(100deg,#5A3E1F 8%,#7A4A8C 46%,#3A6870 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.rd-fate-loom .rd-fate-sub{
+  font-family:var(--f-serif);font-size:var(--fs-xs);letter-spacing:.08em;
+  color:#6E5333;font-style:italic;opacity:.85;
+}
+@media (prefers-reduced-motion:reduce){
+  .rd-fate-loom .rd-fate-strings .s,
+  .rd-fate-loom .rd-fate-strings .knot{animation:none}
+}
 .rd-branch-hd--inline .rd-br-tt{
   flex:1;min-width:0;font-family:var(--f-display);font-size:var(--fs-sm);
   letter-spacing:.08em;color:#3A2B18;

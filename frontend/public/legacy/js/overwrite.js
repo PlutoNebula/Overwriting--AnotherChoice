@@ -599,25 +599,15 @@
         var bk = OW.Store.book(bookId);
         if (bk) { bk.page = chIdx; OW.Store.commit(); }
 
-        /* 若还有后续章节需要重写：先跑完全书顺序改写，再回阅读器 */
         var chs = (bk && bk.chapters) || [];
+        /* 第一章已经在 Stage 3 生成完，立即回阅读器；
+           后续章节在后台顺序推演，每写完一章就 commit + 通知阅读器重绘。 */
+        OW.toast('已进入分支「' + branch.title + '」。');
+        OW.App.openBook(bookId);
         if (chIdx < chs.length - 1) {
-          self.running = true;
-          self.showCast('准备逐章改写……');
-          self.continueRewriteBook(branch.id).then(function () {
-            self.running = false;
-            self.hideCast();
-            OW.toast('分支「' + branch.title + '」已改写至末章。');
-            OW.App.openBook(bookId);
-          }).catch(function () {
-            self.running = false;
-            self.hideCast();
-            OW.toast('部分章节改写失败，已用演示内容占位。', 'warn');
-            OW.App.openBook(bookId);
+          self.continueRewriteBook(branch.id).catch(function () {
+            /* 单章失败已在 continueRewriteBook 内部落 stub，此处兜底 */
           });
-        } else {
-          OW.toast('已进入分支「' + branch.title + '」。');
-          OW.App.openBook(bookId);
         }
         return;
       });
@@ -823,12 +813,20 @@
         return Promise.resolve();
       }
 
-      /* 顺序 promise 链，一章一章推 */
+      /* 顺序 promise 链，一章一章推。写完一章立即通知阅读器重绘，
+         这样刚生成的章节马上能读，未生成的章节继续显示占位。 */
+      function notifyReader() {
+        try {
+          if (OW.Rd && OW.Rd.bookId === b.id && OW.App && OW.App.isView('reader')) {
+            OW.Rd.render();
+          }
+        } catch (_) { /* 阅读器未挂载或已切出，忽略 */ }
+      }
+
       var chain = Promise.resolve();
       for (var i = startIdx; i < chs.length; i++) {
-        (function (idx, order) {
+        (function (idx) {
           chain = chain.then(function () {
-            self.showCast('正在改写第 ' + (idx + 1) + ' 节 · ' + order + '/' + total);
             var payload = self._buildChapterPayload(b, br, idx);
             return self.callBackendChapter(payload).then(function (res) {
               OW.OwStore.setChapter(b, branchId, idx, {
@@ -837,19 +835,23 @@
                 title: res.title || '',
                 demo: !!res.demo
               });
-            }).catch(function (err) {
+              notifyReader();
+            }).catch(function () {
               /* 单章失败：写入 stub 版本，继续下一章，不阻断整本 */
               var stub = self._stubChapter(b, br, idx);
               OW.OwStore.setChapter(b, branchId, idx, {
                 narrative: stub.narrative, summary: stub.summary,
                 title: stub.title, demo: true
               });
+              notifyReader();
             });
           });
-        })(i, i - startIdx + 1);
+        })(i);
       }
       return chain.then(function () {
         OW.OwStore.setPending(b, branchId, false);
+        notifyReader();
+        OW.toast('分支「' + (br.title || '未命名') + '」已改写至末章。');
       });
     },
 

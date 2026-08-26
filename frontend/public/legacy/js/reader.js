@@ -536,12 +536,28 @@
         return t ? '<p>' + SVG.esc(t) + '</p>' : '';
       }).join('');
       if (!body && info.pending) {
-        body = '<p class="rd-branch-pending">' +
-          '（本节仍在推演中，稍后自动出现。）</p>';
+        body =
+          '<div class="rd-fate-loom" role="status" aria-live="polite">' +
+            '<svg class="rd-fate-strings" viewBox="0 0 320 88" aria-hidden="true">' +
+              '<defs>' +
+                '<linearGradient id="rdFateG" x1="0" x2="1" y1="0" y2="0">' +
+                  '<stop offset="0" stop-color="#7A5832" stop-opacity="0"/>' +
+                  '<stop offset=".5" stop-color="#C7A45A" stop-opacity=".95"/>' +
+                  '<stop offset="1" stop-color="#8A5AB8" stop-opacity="0"/>' +
+                '</linearGradient>' +
+              '</defs>' +
+              '<path class="s s1" d="M0 22 Q80 6 160 22 T320 22"/>' +
+              '<path class="s s2" d="M0 44 Q80 68 160 44 T320 44"/>' +
+              '<path class="s s3" d="M0 66 Q80 50 160 66 T320 66"/>' +
+              '<circle class="knot" cx="160" cy="44" r="4"/>' +
+            '</svg>' +
+            '<div class="rd-fate-text">命运之弦正在被扭转……</div>' +
+            '<div class="rd-fate-sub">本节的分支剧情正在推演，稍后自动落笔</div>' +
+          '</div>';
       }
       var demoTag = info.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
       var pendingTag = info.pending
-        ? '<span class="rd-br-tag pending">推演中</span>' : '';
+        ? '<span class="rd-br-tag pending">命运之弦扭转中</span>' : '';
       return '<div class="rd-branch-inline" data-br="' + br.id + '">' +
         '<div class="rd-branch-hd rd-branch-hd--inline">' +
           '<span class="rd-br-badge">分支 ' + this._pad2(br.no) + '</span>' +
