@@ -272,6 +272,12 @@
 .ins-head{
   flex:none;padding:var(--s5) var(--s5) var(--s4);border-bottom:1px solid var(--ln-hair);
 }
+/* 顶部的「铭文」术语说明：默认气泡在元素上方会被面板边缘截掉，
+   在 .ins-head 里改为落在元素下方，并把最大宽度收窄一点。 */
+.ins-head .term::after{
+  top:calc(100% + 8px);bottom:auto;
+  max-width:16rem;
+}
 .ins-head .row{display:flex;align-items:center;justify-content:space-between;gap:var(--s3)}
 .ins-head h3{font-size:var(--fs-md);letter-spacing:.14em;font-weight:400}
 .ins-head .sub{margin-top:var(--s2);font-size:var(--fs-mono);color:var(--tx-faint);line-height:1.8}

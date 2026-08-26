@@ -91,36 +91,14 @@
       b.page = 1;
       b.firstInsDone = true;                 // 演示时不重复弹第一枚铭文仪式
 
-      var seed = [
-        { ch: 1, para: 1, quote: '不是被吸走，是被读走', kind: 'echo',
-          body: '「被读走」这三个字让我停了很久。原来写下去不是留下，是交出去。' },
-        { ch: 1, para: 0, quote: '纸面干净得反常', kind: 'query',
-          body: '真的干净吗？还是前面的人写过、又被读走了？作者在这里没有说实话。' },
-        { ch: 1, para: 3, quote: '这本书一直在等有人先开口', kind: 'link',
-          body: '像我读过的另一本书里那句：门不上锁，只是没人推。' },
-        { ch: 2, para: 2, quote: '空格是留给下一个值夜人的', kind: 'cont',
-          body: '于是第八个人来了。她没有写名字，她把空格又往下挪了一行。' }
-      ];
-
+      /* 演示模式只解锁「翻到第 2 节 + 跳过首铭文仪式」，
+         不再预填任何铭文 / 书签 / 终章 / 分支 —— 让评审看到干净的空态。 */
       b.inscriptions = [];
-      seed.forEach(function (s, n) {
-        var chap = b.chapters[s.ch];
-        if (!chap) return;
-        var txt = chap.paras[s.para] || '';
-        var at = txt.indexOf(s.quote);
-        if (at < 0) return;
-        b.inscriptions.push({
-          id: 'demo-' + n, at: Date.now() - (4 - n) * 60000,
-          ch: s.ch, para: s.para, s: at, e: at + s.quote.length,
-          quote: s.quote, kind: s.kind, body: s.body
-        });
-      });
-
-      b.bookmarks = [{ ch: 1, para: 1, text: '墨落纸上，字迹缓慢散开', at: Date.now() }];
-
-      b.finale = '我原以为读完一本书就是把它放回架上。第七盏灯告诉我不是的：'
-               + '起头的人只写了一半，剩下一半要我在页边补齐。我不打算改掉扉页上的名字，'
-               + '我只在它下面留一格，写上我自己的。';
+      b.bookmarks = [];
+      b.finale = '';
+      b.branches = [];
+      b.currentBranch = null;
+      b.branchCounter = 0;
     }
   };
 })(window);

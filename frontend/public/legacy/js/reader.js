@@ -13,6 +13,7 @@
     { id: 'toc',    ico: 'toc',    lb: '目录' },
     { id: 'search', ico: 'search', lb: '搜索' },
     { id: 'bookmark', ico: 'mark', lb: '书签' },
+    { id: 'branch', ico: 'branch', lb: '分支' },
     { id: 'tts',    ico: 'tts',    lb: '朗读' },
     { id: 'display', ico: 'disp',  lb: '配色' }
   ];
@@ -185,8 +186,10 @@
       var chs = b.chapters || [], idx = Math.min(b.page || 0, Math.max(chs.length - 1, 0));
 
       D.getElementById('rdTitle').textContent = b.title + ' · ' + b.author + ' 著';
-      D.getElementById('rdSub').textContent =
-        (chs[idx] ? chs[idx].title : '') + '　|　铭文 ' + b.inscriptions.length + ' 枚';
+      var subEl = D.getElementById('rdSub');
+      subEl.innerHTML = SVG.esc(chs[idx] ? chs[idx].title : '') +
+        '　|　铭文 ' + b.inscriptions.length + ' 枚' +
+        this._currentLineBadgeHtml(b);
 
       var nb = D.getElementById('rdNight');
       nb.innerHTML = SVG.icon(st.night ? 'moon' : 'sun');
@@ -213,6 +216,12 @@
       D.getElementById('rdPrev').disabled = idx <= 0;
       D.getElementById('rdNext').disabled = idx >= chs.length - 1;
       D.getElementById('rdIns').classList.toggle('is-on', this.asideOn);
+
+      var badge = D.getElementById('rdBrBadge');
+      if (badge) {
+        var self = this;
+        badge.addEventListener('click', function () { self.setPanel('branch'); });
+      }
     },
 
     /* ---------- 左侧五合一面板 ---------- */
@@ -271,6 +280,10 @@
           var it = e.target.closest('.bm-item');
           if (it) self.goto(bms[parseInt(it.getAttribute('data-i'), 10)].ch);
         });
+
+      } else if (this.panel === 'branch') {
+        body.innerHTML = this._branchPaneHtml(b);
+        this._wireBranchPane(b);
 
       } else if (this.panel === 'tts') {
         body.innerHTML = '<div class="side-pane is-on"><div class="hd">朗读</div>' +
@@ -331,6 +344,194 @@
       }
     },
 
+    /* ---------- 分支面板：树 + 切换 + 候选 ---------- */
+    _pad2: function (n) { n = String(n || 0); while (n.length < 2) n = '0' + n; return n; },
+
+    _branchLabel: function (b, id) {
+      if (!id) return '原作路线';
+      if (!OW.OwStore) return '分支';
+      var br = OW.OwStore.byId(b, id);
+      return br ? ('分支 ' + this._pad2(br.no)) : '分支';
+    },
+
+    _branchPaneHtml: function (b) {
+      if (!OW.OwStore) {
+        return '<div class="side-pane is-on"><div class="hd">分支</div>' +
+          '<div class="empty">' + SVG.icon('branch', 40) +
+          '<div>剧情覆写工作台未加载。</div></div></div>';
+      }
+      OW.OwStore.ensure(b);
+      var self = this;
+      var cur = OW.OwStore.currentLine(b);
+      var tree = OW.OwStore.tree(b);
+      var drafts = OW.OwStore.drafts(b);
+
+      var canonCls = cur.branchId === null ? 'is-cur' : '';
+      var canonNode =
+        '<li><button class="br-node ' + canonCls + '" data-br="" ' +
+          'aria-pressed="' + (cur.branchId === null) + '">' +
+          '<span class="br-badge is-canon">原作</span>' +
+          '<span class="br-tt">' + SVG.esc(b.title) + '</span>' +
+          '<span class="br-meta">canonical</span>' +
+        '</button>';
+
+      function nodeHtml(br) {
+        var isCur = cur.branchId === br.id;
+        var badge = '<span class="br-badge is-branch">分支 ' + self._pad2(br.no) + '</span>';
+        var meta = '第 ' + ((br.origin && br.origin.ch != null ? br.origin.ch : 0) + 1) + ' 节' +
+          (br.parentId ? ' · 承 ' + self._pad2(self._findBrNo(b, br.parentId)) : ' · 承原作');
+        var demoTag = br.demo ? '<span class="br-demo">演示</span>' : '';
+        return '<li><button class="br-node ' + (isCur ? 'is-cur' : '') + '" data-br="' + br.id + '" ' +
+            'aria-pressed="' + isCur + '">' +
+            badge + demoTag +
+            '<span class="br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
+            '<span class="br-meta">' + meta + '</span>' +
+          '</button>' +
+          (br.children && br.children.length
+            ? '<ul>' + br.children.map(nodeHtml).join('') + '</ul>'
+            : '') +
+        '</li>';
+      }
+
+      var treeUl = canonNode +
+        (tree.length ? '<ul>' + tree.map(nodeHtml).join('') + '</ul>' : '') +
+        '</li>';
+
+      var draftsBlock = drafts.length
+        ? '<div class="br-drafts-hd">已保留的候选</div>' +
+          '<div class="br-drafts">' + drafts.map(function (d) {
+            return '<button class="br-draft" data-draft="' + d.id + '">' +
+              '<span class="nm">' + SVG.esc(d.title || '未命名候选') + '</span>' +
+              '<span class="qu">' + SVG.esc((d.narrative || '').slice(0, 60)) + '…</span>' +
+            '</button>';
+          }).join('') + '</div>'
+        : '';
+
+      var emptyHint = (!tree.length && !drafts.length)
+        ? '<div class="br-empty">还没有任何分支。<br>顶栏「✦ AI 改编」或章末尾的卡片可以写下第一条。</div>'
+        : '';
+
+      return '<div class="side-pane is-on side-branch">' +
+        '<div class="hd">分支 <span class="hd-sub">' + tree.length + ' 条分支 · ' +
+          drafts.length + ' 个候选</span></div>' +
+        '<div class="br-tree"><ul>' + treeUl + '</ul></div>' +
+        emptyHint +
+        draftsBlock +
+        '<div class="br-actions">' +
+          '<button class="btn btn--sm" id="rdBrReset">回到原作</button>' +
+          '<button class="btn btn--sm btn--overwrite" id="rdBrMore">' +
+            SVG.icon('star', 12) + ' 从当前分支继续改编</button>' +
+        '</div>' +
+      '</div>';
+    },
+
+    _findBrNo: function (b, id) {
+      if (!OW.OwStore) return '?';
+      var br = OW.OwStore.byId(b, id);
+      return br ? br.no : '?';
+    },
+
+    _wireBranchPane: function (b) {
+      var self = this;
+      var body = D.getElementById('rdSideBody');
+      if (!body) return;
+
+      body.addEventListener('click', function (e) {
+        var node = e.target.closest('.br-node[data-br]');
+        if (node) {
+          var id = node.getAttribute('data-br') || null;
+          var prev = OW.OwStore.currentLine(b).branchId || null;
+          if (prev === id) return;                        // 点当前线不重复提示
+          OW.OwStore.setCurrent(b, id);
+          OW.toast(id
+            ? '已切换到' + self._branchLabel(b, id) + '。'
+            : '已回到原作路线。');
+          self.render();
+          return;
+        }
+        var draft = e.target.closest('.br-draft[data-draft]');
+        if (draft) {
+          if (OW.Ow && OW.Ow.openDraft) OW.Ow.openDraft(self.bookId, draft.getAttribute('data-draft'));
+          return;
+        }
+        if (e.target.closest('#rdBrReset')) {
+          if ((OW.OwStore.currentLine(b).branchId || null) === null) return;
+          OW.OwStore.setCurrent(b, null);
+          OW.toast('已回到原作路线。');
+          self.render();
+          return;
+        }
+        if (e.target.closest('#rdBrMore')) {
+          if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
+          return;
+        }
+      });
+    },
+
+    /* 顶栏当前路线徽章：紫金 = 分支，青铜 = 原作，可点击打开分支面板 */
+    _currentLineBadgeHtml: function (b) {
+      if (!OW.OwStore) return '';
+      OW.OwStore.ensure(b);
+      var cur = OW.OwStore.currentLine(b);
+      var brCount = ((b.branches || []).filter(function (x) { return x.status !== 'draft'; })).length;
+      if (cur.branchId === null) {
+        if (!brCount) return '';
+        return '　|　<button class="rd-br-badge-btn is-canon" id="rdBrBadge" ' +
+          'title="点击查看分支树">原作路线 · ' + brCount + ' 条分支</button>';
+      }
+      var br = OW.OwStore.byId(b, cur.branchId);
+      var lb = br ? ('分支 ' + this._pad2(br.no)) : '分支';
+      return '　|　<button class="rd-br-badge-btn is-branch" id="rdBrBadge" ' +
+        'title="点击查看分支树">✦ ' + lb + '</button>';
+    },
+
+    /* 当前分支线上，从原作到当前分支的所有祖先分支（含自身），
+       按 no 升序返回；起点在本章的分支才会在本章正文之后显示。 */
+    _branchLineage: function (b) {
+      if (!OW.OwStore) return [];
+      OW.OwStore.ensure(b);
+      var cur = OW.OwStore.currentLine(b);
+      if (!cur.branchId) return [];
+      var line = [];
+      var seen = {};
+      var id = cur.branchId;
+      while (id && !seen[id]) {
+        seen[id] = true;
+        var br = OW.OwStore.byId(b, id);
+        if (!br) break;
+        line.unshift(br);
+        id = br.parentId;
+      }
+      return line;
+    },
+
+    _branchOverlayHtml: function (b, idx) {
+      var lineage = this._branchLineage(b);
+      if (!lineage.length) return '';
+      var self = this;
+      var chunks = lineage.filter(function (br) {
+        return br.origin && br.origin.ch === idx && (br.narrative || '').trim();
+      });
+      if (!chunks.length) return '';
+      return chunks.map(function (br) {
+        var body = String(br.narrative || '').split(/\n{1,}/).map(function (t) {
+          t = t.trim();
+          return t ? '<p>' + SVG.esc(t) + '</p>' : '';
+        }).join('');
+        var demoTag = br.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
+        return '<section class="rd-branch" data-br="' + br.id + '">' +
+          '<header class="rd-branch-hd">' +
+            '<span class="rd-br-badge">分支 ' + self._pad2(br.no) + '</span>' +
+            demoTag +
+            '<span class="rd-br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
+            '<button class="rd-br-back" type="button" data-br-reset ' +
+              'title="回到原作路线">回到原作</button>' +
+          '</header>' +
+          '<div class="rd-branch-body">' + body + '</div>' +
+        '</section>';
+      }).join('');
+    },
+
     /* ---------- 正文 ---------- */
     renderPage: function (b, idx) {
       var st = OW.Store.get();
@@ -357,6 +558,10 @@
           '<span class="cta">' + SVG.icon('right', 11) + ' 打开覆写工作台</span>' +
         '</div>';
 
+      /* 分支叠加：若当前正处于某条分支线上，且该分支的起点章节就是本章，
+         把分支正文接在原文之后，让 "切换分支" 在阅读器里可见 */
+      var brBlock = self._branchOverlayHtml(b, idx);
+
       inner.innerHTML =
         '<header class="page-head">' +
           '<div class="ch">Chapter ' + (idx + 1) + '</div>' +
@@ -369,6 +574,7 @@
             return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
           }).join('') +
         '</div>' +
+        brBlock +
         outroHtml;
 
       if (!isLast) {
@@ -385,6 +591,16 @@
           });
         }
       }
+
+      /* 分支块内的 "回到原作" 按钮 */
+      inner.querySelectorAll('[data-br-reset]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (!OW.OwStore) return;
+          OW.OwStore.setCurrent(b, null);
+          OW.toast('已回到原作路线。');
+          self.render();
+        });
+      });
     },
 
     /** 把某段的铭文标记套进正文。同段多条按起点排序，互不重叠。 */

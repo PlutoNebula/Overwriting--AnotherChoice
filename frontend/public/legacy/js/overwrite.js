@@ -137,6 +137,25 @@
       this._go();
     },
 
+    /** 从阅读器分支面板的 "候选" 卡片点击进入：直接回到 Stage 3 结果页 */
+    openDraft: function (bookId, draftId) {
+      var b = OW.Store.book(bookId); if (!b) return;
+      var br = OW.OwStore && OW.OwStore.byId(b, draftId);
+      if (!br) return;
+      this.bookId = bookId;
+      this.origin = br.origin || { bookId: bookId, ch: 0, mode: 'end-of-chapter', quote: '' };
+      this._resetForm();
+      this.form = Object.assign(this.form, br.form || {});
+      this.result = br.result || {
+        title: br.title, narrative: br.narrative,
+        changes: br.changes, conflicts: br.conflicts,
+        nextDirections: br.nextDirections, strength: (br.form || {}).strength,
+        demo: !!br.demo
+      };
+      this.stage = 'result';
+      this._go();
+    },
+
     _resetForm: function () {
       this.form = { prompt: '', tones: [], strength: 'medium', constraints: '' };
       this.result = null;

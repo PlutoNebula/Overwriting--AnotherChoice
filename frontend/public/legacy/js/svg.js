@@ -33,7 +33,8 @@
     star:   '<path d="M12 4l2.3 5.2 5.7.5-4.3 3.8 1.3 5.5L12 16.2 6.9 19l1.3-5.5L4 9.7l5.7-.5z"/>',
     import: '<path d="M12 4v10M8 10.5l4 4 4-4"/><path d="M5 17v2a1 1 0 001 1h12a1 1 0 001-1v-2"/>',
     back:   '<path d="M11 6l-6 6 6 6M5 12h14"/>',
-    dl:     '<path d="M12 4v11M8 11.5l4 4 4-4M5 20h14"/>'
+    dl:     '<path d="M12 4v11M8 11.5l4 4 4-4M5 20h14"/>',
+    branch: '<circle cx="6" cy="5" r="1.8"/><circle cx="6" cy="19" r="1.8"/><circle cx="18" cy="5" r="1.8"/><path d="M6 7v10"/><path d="M6 12h6a6 6 0 006-6"/>'
   };
 
   SVG.icon = function (name, size) {
