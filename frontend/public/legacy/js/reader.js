@@ -505,28 +505,47 @@
       return line;
     },
 
-    /** 计算本章激活的分支：从当前分支线祖先中挑起点在本章、深度最深的一条 */
+    /** 计算本章激活的分支正文：从当前分支线祖先中挑该章有 narrative 的、深度最深的一条 */
     _activeBranchForChapter: function (b, idx) {
       var lineage = this._branchLineage(b);
       if (!lineage.length) return null;
       for (var i = lineage.length - 1; i >= 0; i--) {
         var br = lineage[i];
-        if (br.origin && br.origin.ch === idx && (br.narrative || '').trim()) return br;
+        var text = OW.OwStore && OW.OwStore.chapterNarrative(br, idx);
+        if (text) {
+          return { br: br, narrative: text,
+            demo: (br.chapters && br.chapters[idx] && br.chapters[idx].demo) || br.demo,
+            pending: br.pending && idx > (br.origin && br.origin.ch) };
+        }
+      }
+      /* 无本章正文，但当前分支线上有一条祖先起点在此之前且仍 pending：显示占位 */
+      for (var j = lineage.length - 1; j >= 0; j--) {
+        var b2 = lineage[j];
+        if (b2.pending && b2.origin && idx > b2.origin.ch) {
+          return { br: b2, narrative: '', demo: false, pending: true };
+        }
       }
       return null;
     },
 
-    /** 分支正文以「续写」形式接在原文之后（保留头栏，让读者知道从哪一段开始换向） */
-    _branchInlineHtml: function (br) {
-      var body = String(br.narrative || '').split(/\n{1,}/).map(function (t) {
+    /** 分支正文替换整章原文；含头栏 + 「回到原作」 */
+    _branchInlineHtml: function (info) {
+      var br = info.br;
+      var body = String(info.narrative || '').split(/\n{1,}/).map(function (t) {
         t = t.trim();
         return t ? '<p>' + SVG.esc(t) + '</p>' : '';
       }).join('');
-      var demoTag = br.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
+      if (!body && info.pending) {
+        body = '<p class="rd-branch-pending">' +
+          '（本节仍在推演中，稍后自动出现。）</p>';
+      }
+      var demoTag = info.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
+      var pendingTag = info.pending
+        ? '<span class="rd-br-tag pending">推演中</span>' : '';
       return '<div class="rd-branch-inline" data-br="' + br.id + '">' +
         '<div class="rd-branch-hd rd-branch-hd--inline">' +
           '<span class="rd-br-badge">分支 ' + this._pad2(br.no) + '</span>' +
-          demoTag +
+          demoTag + pendingTag +
           '<span class="rd-br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
           '<button class="rd-br-back" type="button" data-br-reset ' +
             'title="回到原作路线">回到原作</button>' +
@@ -561,14 +580,15 @@
           '<span class="cta">' + SVG.icon('right', 11) + ' 打开覆写工作台</span>' +
         '</div>';
 
-      /* 分支替换：当前分支线上、起点在本章的最深分支若存在，
-         直接用分支正文完整替换原文（原文不显示）。 */
-      var br = self._activeBranchForChapter(b, idx);
-      var proseHtml = br
-        ? self._branchInlineHtml(br)
+      /* 分支替换：当前分支线上本章若有重写正文，用它完整替换原文（原文不显示）。
+         若无本章正文但当前分支仍在 pending，也以占位块替换。 */
+      var info = self._activeBranchForChapter(b, idx);
+      var proseHtml = info
+        ? self._branchInlineHtml(info)
         : ch.paras.map(function (t, pi) {
             return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
           }).join('');
+      var isBranch = !!info;
 
       inner.innerHTML =
         '<header class="page-head">' +
@@ -576,7 +596,7 @@
           '<h2>' + SVG.esc(ch.title) + '</h2>' +
           '<div class="orn">' + SVG.ornament() + '</div>' +
         '</header>' +
-        '<div class="prose ' + (br ? 'is-branch' : '') + '" id="rdProse" ' +
+        '<div class="prose ' + (isBranch ? 'is-branch' : '') + '" id="rdProse" ' +
           'style="font-size:' + st.fontSize + 'px;line-height:' + st.lineHeight + '">' +
           proseHtml +
         '</div>' +

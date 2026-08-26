@@ -789,6 +789,17 @@
   color:#3A6870;padding:2px 8px;border:1px solid rgba(83,167,184,.4);
   border-radius:999px;background:rgba(83,167,184,.08);
 }
+.rd-branch-hd--inline .rd-br-tag.pending{
+  font-family:var(--f-display);font-size:var(--fs-2xs);letter-spacing:.16em;
+  color:#5A3E7A;padding:2px 8px;border:1px solid rgba(120,72,180,.4);
+  border-radius:999px;background:rgba(120,72,180,.08);
+  animation:rdBrPending 1.6s ease-in-out infinite;
+}
+@keyframes rdBrPending{0%,100%{opacity:.55}50%{opacity:1}}
+.rd-branch-pending{
+  font-family:var(--f-serif);color:#6E5333;font-style:italic;letter-spacing:.06em;
+  padding:1em 0;
+}
 .rd-branch-hd--inline .rd-br-tt{
   flex:1;min-width:0;font-family:var(--f-display);font-size:var(--fs-sm);
   letter-spacing:.08em;color:#3A2B18;

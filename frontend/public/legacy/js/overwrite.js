@@ -593,14 +593,32 @@
       });
       D.getElementById('owResAccept').addEventListener('click', function () {
         var branch = self.saveBranch({ status: 'accepted' });
-        OW.toast('已进入分支「' + branch.title + '」。');
-        // 接受后直接回到阅读器，正文位置就是该分支起点章节
         var bookId = self.bookId;
         var chIdx = (branch.origin && branch.origin.ch != null)
           ? branch.origin.ch : 0;
         var bk = OW.Store.book(bookId);
         if (bk) { bk.page = chIdx; OW.Store.commit(); }
-        OW.App.openBook(bookId);
+
+        /* 若还有后续章节需要重写：先跑完全书顺序改写，再回阅读器 */
+        var chs = (bk && bk.chapters) || [];
+        if (chIdx < chs.length - 1) {
+          self.running = true;
+          self.showCast('准备逐章改写……');
+          self.continueRewriteBook(branch.id).then(function () {
+            self.running = false;
+            self.hideCast();
+            OW.toast('分支「' + branch.title + '」已改写至末章。');
+            OW.App.openBook(bookId);
+          }).catch(function () {
+            self.running = false;
+            self.hideCast();
+            OW.toast('部分章节改写失败，已用演示内容占位。', 'warn');
+            OW.App.openBook(bookId);
+          });
+        } else {
+          OW.toast('已进入分支「' + branch.title + '」。');
+          OW.App.openBook(bookId);
+        }
         return;
       });
       D.getElementById('owNextDirs').addEventListener('click', function (e) {
@@ -754,23 +772,222 @@
       opts = opts || {};
       var b = OW.Store.book(this.bookId);
       var R = this.result || {};
+      var chapters = {};
+      if (this.origin && typeof this.origin.ch === 'number') {
+        chapters[this.origin.ch] = {
+          narrative: R.narrative || '',
+          summary: R.summary || '',
+          title: R.title || '',
+          demo: !!R.demo
+        };
+      }
       var branch = OW.OwStore.addBranch(b, {
         origin: this.origin,
         parentId: OW.OwStore.currentLine(b).branchId || null,
         title: R.title || ('分支 · ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })),
         narrative: R.narrative || '',
+        chapters: chapters,
         changes: R.changes || [],
         conflicts: R.conflicts || [],
         nextDirections: R.nextDirections || [],
         form: this.form,
         result: R,
         status: opts.status || 'accepted',
-        demo: !!R.demo
+        demo: !!R.demo,
+        pending: opts.status === 'accepted' && this.origin &&
+                 this.origin.ch < ((b.chapters || []).length - 1)
       });
       if (opts.status === 'accepted') {
         OW.OwStore.setCurrent(b, branch.id);
       }
       return branch;
+    },
+
+    /* ==================================================================
+       全书顺序改写：从起点章的下一章开始，逐章生成并落库
+       每一章调用 callBackendChapter，携带：
+         - 前面章节的摘要（含起点章）
+         - 上两章的完整正文（重写后的优先，否则原文）
+         - 本章的原文
+         - 用户意图 / 倾向 / 强度 / 硬约束
+       ================================================================== */
+    continueRewriteBook: function (branchId) {
+      var self = this;
+      var b = OW.Store.book(this.bookId); if (!b) return Promise.resolve();
+      var br = OW.OwStore.byId(b, branchId); if (!br) return Promise.resolve();
+      var chs = b.chapters || [];
+      var startIdx = (br.origin && typeof br.origin.ch === 'number' ? br.origin.ch : 0) + 1;
+      var total = chs.length - startIdx;
+      if (total <= 0) {
+        OW.OwStore.setPending(b, branchId, false);
+        return Promise.resolve();
+      }
+
+      /* 顺序 promise 链，一章一章推 */
+      var chain = Promise.resolve();
+      for (var i = startIdx; i < chs.length; i++) {
+        (function (idx, order) {
+          chain = chain.then(function () {
+            self.showCast('正在改写第 ' + (idx + 1) + ' 节 · ' + order + '/' + total);
+            var payload = self._buildChapterPayload(b, br, idx);
+            return self.callBackendChapter(payload).then(function (res) {
+              OW.OwStore.setChapter(b, branchId, idx, {
+                narrative: res.narrative || '',
+                summary: res.summary || self._quickSummary(res.narrative || ''),
+                title: res.title || '',
+                demo: !!res.demo
+              });
+            }).catch(function (err) {
+              /* 单章失败：写入 stub 版本，继续下一章，不阻断整本 */
+              var stub = self._stubChapter(b, br, idx);
+              OW.OwStore.setChapter(b, branchId, idx, {
+                narrative: stub.narrative, summary: stub.summary,
+                title: stub.title, demo: true
+              });
+            });
+          });
+        })(i, i - startIdx + 1);
+      }
+      return chain.then(function () {
+        OW.OwStore.setPending(b, branchId, false);
+      });
+    },
+
+    _prevChaptersSummaries: function (b, br, idx) {
+      /* 起点章之前的原作章节：使用原作首段作为伪摘要（保持轻量）。
+         起点章及之后的重写章节：使用其 summary。 */
+      var out = [];
+      var chs = b.chapters || [];
+      var originCh = (br.origin && typeof br.origin.ch === 'number') ? br.origin.ch : 0;
+      for (var i = 0; i < idx; i++) {
+        if (i < originCh) {
+          var ch = chs[i] || {};
+          out.push({ ch: i, title: ch.title || '',
+            summary: (ch.paras || []).slice(0, 2).join(' ').slice(0, 140) });
+        } else {
+          var c = br.chapters && br.chapters[i];
+          if (c) {
+            out.push({ ch: i, title: c.title || (chs[i] && chs[i].title) || '',
+              summary: c.summary || this._quickSummary(c.narrative || '') });
+          }
+        }
+      }
+      return out;
+    },
+
+    _prevTwoChaptersFull: function (b, br, idx) {
+      /* 上两章的完整正文：重写后的优先，否则回退到原作 */
+      var out = [];
+      var chs = b.chapters || [];
+      for (var k = Math.max(0, idx - 2); k < idx; k++) {
+        var narrative = (br.chapters && br.chapters[k] && br.chapters[k].narrative) || '';
+        if (!narrative && chs[k]) narrative = (chs[k].paras || []).join('\n\n');
+        var title = (br.chapters && br.chapters[k] && br.chapters[k].title) ||
+                    (chs[k] && chs[k].title) || '';
+        out.push({ ch: k, title: title, narrative: narrative });
+      }
+      return out;
+    },
+
+    _buildChapterPayload: function (b, br, idx) {
+      var chs = b.chapters || [];
+      var ch = chs[idx] || {};
+      var originText = (ch.paras || []).join('\n\n');
+      return {
+        book: { id: b.id, title: b.title, author: b.author },
+        branch: { id: br.id, no: br.no, title: br.title },
+        origin: {
+          ch: br.origin && br.origin.ch,
+          ch_title: (chs[br.origin && br.origin.ch] || {}).title || '',
+          quote: (br.origin && br.origin.quote) || '',
+          mode: br.origin && br.origin.mode
+        },
+        target: {
+          ch: idx,
+          ch_title: ch.title || '',
+          origin_text: originText
+        },
+        prev_summaries: this._prevChaptersSummaries(b, br, idx),
+        prev_two_chapters: this._prevTwoChaptersFull(b, br, idx),
+        prompt: (br.form && br.form.prompt) || '',
+        tones: (br.form && br.form.tones) || [],
+        strength: (br.form && br.form.strength) || 'medium',
+        constraints: (br.form && br.form.constraints) || ''
+      };
+    },
+
+    callBackendChapter: function (payload) {
+      var self = this;
+      var ai = (OW.Store.get() || {}).ai || {};
+      if (ai.model === 'demo' && !ai.connected) {
+        return new Promise(function (resolve) {
+          w.setTimeout(function () { resolve(self._stubChapter(null, null, null, payload)); }, 220);
+        });
+      }
+      return new Promise(function (resolve, reject) {
+        var ctrl = new w.AbortController();
+        var timer = w.setTimeout(function () { ctrl.abort(); }, 30000);
+        fetch(API + '/api/overwrite/chapter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: ctrl.signal
+        }).then(function (r) {
+          w.clearTimeout(timer);
+          if (!r.ok) return r.text().then(function (t) { throw new Error(t || 'HTTP ' + r.status); });
+          return r.json();
+        }).then(function (j) {
+          resolve({
+            title: j.title || '',
+            narrative: j.narrative || '',
+            summary: j.summary || '',
+            demo: !!j.demo
+          });
+        }).catch(function (err) {
+          w.clearTimeout(timer);
+          reject(err);
+        });
+      });
+    },
+
+    _quickSummary: function (text) {
+      if (!text) return '';
+      var t = String(text).replace(/\s+/g, '').slice(0, 96);
+      return t + (String(text).length > 96 ? '…' : '');
+    },
+
+    _stubChapter: function (b, br, idx, payload) {
+      /* 后端未连时的确定性伪续写：套上上一章末尾一句 + 意图关键词 */
+      var p = payload || {};
+      var chTitle = (p.target && p.target.ch_title) || '';
+      var chIdx = (p.target && p.target.ch) || idx || 0;
+      var intent = ((p.prompt || '') + '').slice(0, 40);
+      var prevTail = '';
+      var prev2 = p.prev_two_chapters || [];
+      if (prev2.length) {
+        var last = prev2[prev2.length - 1];
+        var s = (last.narrative || '').split(/[。！？\n]/).filter(Boolean);
+        prevTail = s.length ? s[s.length - 1].slice(-40) : '';
+      }
+      var lines = [
+        '（分支续写 · 第 ' + (chIdx + 1) + ' 节' +
+          (chTitle ? '「' + chTitle + '」' : '') + '）',
+        prevTail ? '承上文「…' + prevTail + '」——' : '这一节，事情继续朝着另一个方向走。',
+        intent
+          ? '「' + intent + '」这条意图仍在推动叙事：'
+          : '你写下的那条改编方向仍在推动叙事：',
+        '人物记住了上一节没能说出口的话，本节里被换了一种方式讲出来。'
+          + '场景没有回到原作既定的落点，而是留出一条空白供后来的章节承接。',
+        '（演示：后端未连，本节由前端 stub 生成，仅用于展示流程与结构。）'
+      ];
+      var narrative = lines.filter(Boolean).join('\n\n');
+      return {
+        demo: true,
+        title: chTitle ? '分支 · ' + chTitle : '分支',
+        narrative: narrative,
+        summary: (intent ? '意图：' + intent + '。' : '') +
+          '本节承接上章走向，未回到原作落点。'
+      };
     },
 
     /* ==================================================================
@@ -941,13 +1158,26 @@
     addBranch: function (b, patch) {
       this.ensure(b);
       b.branchCounter++;
+      /* chapters 是 {chIdx: {narrative, summary, title, demo}} 的稀疏映射：
+         起点章为空时用 patch.narrative 兜底。 */
+      var chapters = patch.chapters || {};
+      if (patch.origin && typeof patch.origin.ch === 'number' &&
+          patch.narrative && !chapters[patch.origin.ch]) {
+        chapters[patch.origin.ch] = {
+          narrative: patch.narrative,
+          summary: '',
+          title: patch.title || '',
+          demo: !!patch.demo
+        };
+      }
       var br = {
         id: 'br' + Date.now() + Math.floor(Math.random() * 1000),
         no: b.branchCounter,
         parentId: patch.parentId || null,
         origin: patch.origin,
         title: patch.title,
-        narrative: patch.narrative,
+        narrative: patch.narrative,              // 起点章正文（老字段，向后兼容）
+        chapters: chapters,                       // 新字段：多章重写
         changes: patch.changes || [],
         conflicts: patch.conflicts || [],
         nextDirections: patch.nextDirections || [],
@@ -956,11 +1186,36 @@
         status: patch.status || 'accepted',
         demo: !!patch.demo,
         editedByReader: !!patch.editedByReader,
+        pending: !!patch.pending,                 // 后续章节仍在推演中
         at: Date.now()
       };
       b.branches.push(br);
       OW.Store.commit();
       return br;
+    },
+    setChapter: function (b, branchId, chIdx, chapter) {
+      var br = this.byId(b, branchId);
+      if (!br) return null;
+      if (!br.chapters) br.chapters = {};
+      br.chapters[chIdx] = chapter;
+      OW.Store.commit();
+      return br;
+    },
+    setPending: function (b, branchId, pending) {
+      var br = this.byId(b, branchId);
+      if (!br) return null;
+      br.pending = !!pending;
+      OW.Store.commit();
+      return br;
+    },
+    chapterNarrative: function (br, idx) {
+      if (!br) return null;
+      var c = br.chapters && br.chapters[idx];
+      if (c && (c.narrative || '').trim()) return c.narrative;
+      if (br.origin && br.origin.ch === idx && (br.narrative || '').trim()) {
+        return br.narrative;
+      }
+      return null;
     },
     setCurrent: function (b, id) {
       this.ensure(b);
