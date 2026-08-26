@@ -505,31 +505,34 @@
       return line;
     },
 
-    _branchOverlayHtml: function (b, idx) {
+    /** 计算本章激活的分支：从当前分支线祖先中挑起点在本章、深度最深的一条 */
+    _activeBranchForChapter: function (b, idx) {
       var lineage = this._branchLineage(b);
-      if (!lineage.length) return '';
-      var self = this;
-      var chunks = lineage.filter(function (br) {
-        return br.origin && br.origin.ch === idx && (br.narrative || '').trim();
-      });
-      if (!chunks.length) return '';
-      return chunks.map(function (br) {
-        var body = String(br.narrative || '').split(/\n{1,}/).map(function (t) {
-          t = t.trim();
-          return t ? '<p>' + SVG.esc(t) + '</p>' : '';
-        }).join('');
-        var demoTag = br.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
-        return '<section class="rd-branch" data-br="' + br.id + '">' +
-          '<header class="rd-branch-hd">' +
-            '<span class="rd-br-badge">分支 ' + self._pad2(br.no) + '</span>' +
-            demoTag +
-            '<span class="rd-br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
-            '<button class="rd-br-back" type="button" data-br-reset ' +
-              'title="回到原作路线">回到原作</button>' +
-          '</header>' +
-          '<div class="rd-branch-body">' + body + '</div>' +
-        '</section>';
+      if (!lineage.length) return null;
+      for (var i = lineage.length - 1; i >= 0; i--) {
+        var br = lineage[i];
+        if (br.origin && br.origin.ch === idx && (br.narrative || '').trim()) return br;
+      }
+      return null;
+    },
+
+    /** 分支正文以「续写」形式接在原文之后（保留头栏，让读者知道从哪一段开始换向） */
+    _branchInlineHtml: function (br) {
+      var body = String(br.narrative || '').split(/\n{1,}/).map(function (t) {
+        t = t.trim();
+        return t ? '<p>' + SVG.esc(t) + '</p>' : '';
       }).join('');
+      var demoTag = br.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
+      return '<div class="rd-branch-inline" data-br="' + br.id + '">' +
+        '<div class="rd-branch-hd rd-branch-hd--inline">' +
+          '<span class="rd-br-badge">分支 ' + this._pad2(br.no) + '</span>' +
+          demoTag +
+          '<span class="rd-br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
+          '<button class="rd-br-back" type="button" data-br-reset ' +
+            'title="回到原作路线">回到原作</button>' +
+        '</div>' +
+        body +
+      '</div>';
     },
 
     /* ---------- 正文 ---------- */
@@ -558,9 +561,26 @@
           '<span class="cta">' + SVG.icon('right', 11) + ' 打开覆写工作台</span>' +
         '</div>';
 
-      /* 分支叠加：若当前正处于某条分支线上，且该分支的起点章节就是本章，
-         把分支正文接在原文之后，让 "切换分支" 在阅读器里可见 */
-      var brBlock = self._branchOverlayHtml(b, idx);
+      /* 分支替换：当前分支线上、起点在本章的最深分支若存在，直接替换正文。
+         选段起点：保留起点段之前的原文，起点段之后由分支正文接管。
+         整章起点（end-of-chapter / from-inscription 无 para）：全章原文之后接分支正文。 */
+      var br = self._activeBranchForChapter(b, idx);
+      var proseHtml;
+      if (br) {
+        var cutBefore = ch.paras.length;
+        if (br.origin && br.origin.mode === 'from-selection' &&
+            typeof br.origin.para === 'number') {
+          cutBefore = Math.max(0, Math.min(br.origin.para, ch.paras.length));
+        }
+        var keptParas = ch.paras.slice(0, cutBefore).map(function (t, pi) {
+          return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
+        }).join('');
+        proseHtml = keptParas + self._branchInlineHtml(br);
+      } else {
+        proseHtml = ch.paras.map(function (t, pi) {
+          return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
+        }).join('');
+      }
 
       inner.innerHTML =
         '<header class="page-head">' +
@@ -568,13 +588,10 @@
           '<h2>' + SVG.esc(ch.title) + '</h2>' +
           '<div class="orn">' + SVG.ornament() + '</div>' +
         '</header>' +
-        '<div class="prose" id="rdProse" style="font-size:' + st.fontSize +
-          'px;line-height:' + st.lineHeight + '">' +
-          ch.paras.map(function (t, pi) {
-            return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
-          }).join('') +
+        '<div class="prose ' + (br ? 'is-branch' : '') + '" id="rdProse" ' +
+          'style="font-size:' + st.fontSize + 'px;line-height:' + st.lineHeight + '">' +
+          proseHtml +
         '</div>' +
-        brBlock +
         outroHtml;
 
       if (!isLast) {

@@ -594,7 +594,14 @@
       D.getElementById('owResAccept').addEventListener('click', function () {
         var branch = self.saveBranch({ status: 'accepted' });
         OW.toast('已进入分支「' + branch.title + '」。');
-        self.stage = 'tree'; self.render();
+        // 接受后直接回到阅读器，正文位置就是该分支起点章节
+        var bookId = self.bookId;
+        var chIdx = (branch.origin && branch.origin.ch != null)
+          ? branch.origin.ch : 0;
+        var bk = OW.Store.book(bookId);
+        if (bk) { bk.page = chIdx; OW.Store.commit(); }
+        OW.App.openBook(bookId);
+        return;
       });
       D.getElementById('owNextDirs').addEventListener('click', function (e) {
         var li = e.target.closest('li[data-i]'); if (!li) return;
