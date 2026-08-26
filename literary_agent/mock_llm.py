@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 def _detect_task(messages) -> str:
     for m in messages:
         content = m.content if isinstance(m.content, str) else ""
-        for tag in ("analyze", "assemble", "review"):
+        for tag in ("classify", "modify", "rewrite_review", "rewrite", "analyze", "assemble", "review"):
             if f"【任务类型】{tag}" in content:
                 return tag
     return "analyze"
@@ -49,6 +49,28 @@ SAMPLE_ASSEMBLE = {
     ],
 }
 
+SAMPLE_CLASSIFY = {
+    "方面": "剧情",
+    "理由": "改写意图改变了故事走向与结局",
+}
+
+SAMPLE_MODIFY = {
+    "世界条目": [
+        {"关键词": ["雾镇"], "内容": "雾镇迷雾散去后成为光明小镇", "类别": "地点", "备注": "改写后"}
+    ],
+    "角色卡": [],
+    "剧本摘要": {},
+    "世界设定": "# 世界设定\n\n雾镇已见阳光。",
+}
+
+SAMPLE_REWRITE = {
+    "标题": "分支 · 示例",
+    "正文": "于是，张三没有交出那盏灯。\n\n他转身走向暗处，那里还有第八张桌。",
+    "关键变化": ["主角未按原作行动", "引入第八张桌的新设定"],
+    "设定冲突": ["需交代第八张桌的来历"],
+    "后续方向": ["让李四先一步发现第八张桌", "让守林人重新出现"],
+}
+
 PASS_REPORT = {
     "通过": True,
     "评分": {"一致性": 5, "完整性": 5, "准确性": 5, "去重": 5, "可读性": 5},
@@ -79,7 +101,13 @@ class MockLLM:
             return AIMessage(content=json.dumps(SAMPLE_ANALYSIS, ensure_ascii=False))
         if task == "assemble":
             return AIMessage(content=json.dumps(SAMPLE_ASSEMBLE, ensure_ascii=False))
-        if task == "review":
+        if task == "classify":
+            return AIMessage(content=json.dumps(SAMPLE_CLASSIFY, ensure_ascii=False))
+        if task == "modify":
+            return AIMessage(content=json.dumps(SAMPLE_MODIFY, ensure_ascii=False))
+        if task == "rewrite":
+            return AIMessage(content=json.dumps(SAMPLE_REWRITE, ensure_ascii=False))
+        if task in ("review", "rewrite_review"):
             self.review_calls += 1
             if self.review_mode == "fail_then_pass" and self.review_calls == 1:
                 return AIMessage(content=json.dumps(FAIL_REPORT, ensure_ascii=False))

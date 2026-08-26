@@ -126,3 +126,138 @@ def build_review_user(analyses: list[dict], outputs: dict[str, str]) -> str:
         json.dumps(outputs, ensure_ascii=False, indent=2),
     ]
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# 改写（覆写）相关提示词
+# ---------------------------------------------------------------------------
+
+CLASSIFY_SYSTEM = """【任务类型】classify
+你是一名文学编辑。根据「改写意图 + 起点引文 + 前文原文」，判断这次改写主要属于以下哪个方面：剧情 / 人物 / 世界观。
+
+只输出一个合法的 JSON 对象（不要用 markdown 代码块包裹）：
+{"方面": "剧情|人物|世界观", "理由": "一句话说明为什么属于该方面"}
+
+判定参考：
+- 剧情：改变事件走向、结局、情节安排。
+- 人物：改变某角色的目标、性格、关系或命运。
+- 世界观：改变设定、规则、地点、势力等背景。
+"""
+
+MODIFY_ARTIFACTS_SYSTEM = """【任务类型】modify
+你是一名世界书编辑。根据「修改方面 + 改写意图 + 必须保留的约束 + 现有产物（语义化）」，修改对应的产物。
+
+- 世界观 → 修改「世界条目」；人物 → 修改「角色卡」；剧情 → 修改「剧本摘要」。
+
+只输出一个合法的 JSON 对象：
+{
+  "世界条目": [{"关键词":["..."], "内容":"...", "类别":"地点|势力|规则|时间线|物品|术语|背景", "备注":""}],
+  "角色卡": [{"姓名":"", "描述":"", "性格":"", "场景":"", "开场白":"", "对话示例":"", "标签":[]}],
+  "剧本摘要": {"内容梗概.md":"...", "章节摘要.md":"...", "主题分析.md":"..."},
+  "世界设定": "..."
+}
+
+要求：只填「方面」对应的字段，其余留空数组/空串；尽量复用原有关键词与命名；修改要能支撑后续剧情改写。
+"""
+
+REWRITE_SYSTEM = """【任务类型】rewrite
+你是一名小说续写作者。根据「前文原文 + 起点引文 + 改写意图 + 剧情倾向 + 推演强度 + 必须保留的设定 + 修改后的世界书」，续写后续剧情。
+
+只输出一个合法的 JSON 对象：
+{
+  "标题": "分支标题",
+  "正文": "改写后的后续剧情（分段）",
+  "关键变化": ["相对原作的关键变化..."],
+  "设定冲突": ["需要注意/交代的设定冲突..."],
+  "后续方向": ["后续可选走向1", "走向2"]
+}
+
+要求：
+1. 前文原文必须逐字保留，只在其后续写。
+2. 严格遵循改写意图与「必须保留的设定」；推演强度决定偏离原作的程度。
+3. 人物、世界设定要与「修改后的世界书」一致，不得矛盾。
+4. 正文用中文，分段自然。
+"""
+
+REWRITE_REVIEW_SYSTEM = """【任务类型】rewrite_review
+你是资深审校。用「前文原文 + 改写意图 + 修改后的世界书」反向核对「改写正文」，检查一致性 / 连贯性 / 指令符合度 / 无幻觉 / 可读性。
+
+只输出一个合法的 JSON 对象：
+{
+  "通过": true 或 false,
+  "评分": {"一致性":1到5, "连贯性":1到5, "指令符合度":1到5, "无幻觉":1到5, "可读性":1到5},
+  "问题清单": [{"位置":"", "严重度":"高|中|低", "描述":"", "建议":""}],
+  "修订意见": "给修改环节的具体指令（无问题时留空）"
+}
+
+判定：存在「高」严重度问题，或「中」严重度问题 ≥ 2 个，则「通过」为 false。
+"""
+
+
+def build_classify_user(state: dict) -> str:
+    origin = state.get("origin") or {}
+    parts = [
+        "=== 改写意图 ===",
+        state.get("prompt", ""),
+        "=== 起点引文 ===",
+        origin.get("quote", ""),
+        "=== 前文原文（末尾） ===",
+        state.get("context", ""),
+    ]
+    return "\n".join(parts)
+
+
+def build_modify_user(state: dict, semantic: dict) -> str:
+    parts = [
+        "=== 修改方面 ===",
+        state.get("aspect", "世界观"),
+        "=== 改写意图 ===",
+        state.get("prompt", ""),
+        "=== 必须保留的约束 ===",
+        state.get("constraints", "") or "无",
+        "=== 现有产物（语义化） ===",
+        json.dumps(semantic, ensure_ascii=False, indent=2),
+    ]
+    if state.get("review_feedback"):
+        parts.append("\n=== 上一轮修订意见 ===")
+        parts.append(state["review_feedback"])
+    return "\n".join(parts)
+
+
+def build_rewrite_user(state: dict) -> str:
+    origin = state.get("origin") or {}
+    parts = [
+        "=== 前文原文（逐字保留，续写其后） ===",
+        state.get("context", ""),
+        "=== 起点引文 ===",
+        origin.get("quote", ""),
+        "=== 改写意图 ===",
+        state.get("prompt", ""),
+        "=== 剧情倾向 ===",
+        ", ".join(state.get("tones", [])) or "未指定",
+        "=== 推演强度 ===",
+        state.get("strength", ""),
+        "=== 必须保留的设定 ===",
+        state.get("constraints", "") or "无",
+        "=== 修改后的世界书 ===",
+        json.dumps(state.get("modified_artifacts", {}), ensure_ascii=False, indent=2),
+    ]
+    if state.get("review_feedback"):
+        parts.append("\n=== 上一轮修订意见 ===")
+        parts.append(state["review_feedback"])
+    return "\n".join(parts)
+
+
+def build_rewrite_review_user(state: dict) -> str:
+    result = state.get("result") or {}
+    parts = [
+        "=== 前文原文 ===",
+        state.get("context", ""),
+        "=== 改写意图 ===",
+        state.get("prompt", ""),
+        "=== 修改后的世界书 ===",
+        json.dumps(state.get("modified_artifacts", {}), ensure_ascii=False, indent=2),
+        "=== 改写正文 ===",
+        result.get("正文", ""),
+    ]
+    return "\n".join(parts)

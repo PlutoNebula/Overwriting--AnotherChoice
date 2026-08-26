@@ -103,3 +103,69 @@ def build_outputs(out) -> dict[str, str]:
         build_world_info(out.世界条目 or []), ensure_ascii=False, indent=2
     )
     return outputs
+
+
+def build_modify_outputs(out) -> dict[str, str]:
+    """把 ModifyOutput（只含被修改方面的语义字段）序列化为 {相对路径: 内容}。"""
+    outputs: dict[str, str] = {}
+
+    for name, content in (out.剧本摘要 or {}).items():
+        outputs[f"剧本摘要/{sanitize_name(name)}"] = content
+
+    seen: set[str] = set()
+    for card in out.角色卡 or []:
+        base = sanitize_name(card.姓名) or "未命名角色"
+        name = base
+        n = 2
+        while name in seen:
+            name = f"{base}_{n}"
+            n += 1
+        seen.add(name)
+        outputs[f"人物信息/{name}.json"] = json.dumps(build_chara_card(card), ensure_ascii=False, indent=2)
+
+    if out.世界设定:
+        outputs["世界书/世界设定.md"] = out.世界设定
+    if out.世界条目:
+        outputs["世界书/world_info.json"] = json.dumps(
+            build_world_info(out.世界条目), ensure_ascii=False, indent=2
+        )
+    return outputs
+
+
+def parse_world_info(data: dict) -> list[dict]:
+    """把 SillyTavern World Info JSON 还原成语义条目列表。"""
+    if not isinstance(data, dict):
+        return []
+    entries = data.get("entries", {})
+    if isinstance(entries, list):
+        items = entries
+    elif isinstance(entries, dict):
+        items = list(entries.values())
+    else:
+        items = []
+    out: list[dict] = []
+    for e in items:
+        if not isinstance(e, dict):
+            continue
+        group = e.get("group", "") or ""
+        out.append({
+            "关键词": e.get("key") or e.get("keys") or [],
+            "内容": e.get("content", ""),
+            "类别": group,
+            "备注": (e.get("comment", "") or "").replace(f"[{group}] ", "").strip(),
+        })
+    return out
+
+
+def parse_chara_card(data: dict) -> dict:
+    """把 chara_card_v2 JSON 还原成语义字段。"""
+    d = data.get("data", data) if isinstance(data, dict) else {}
+    return {
+        "姓名": d.get("name", ""),
+        "描述": d.get("description", ""),
+        "性格": d.get("personality", ""),
+        "场景": d.get("scenario", ""),
+        "开场白": d.get("first_mes", ""),
+        "对话示例": d.get("mes_example", ""),
+        "标签": d.get("tags", []) or [],
+    }

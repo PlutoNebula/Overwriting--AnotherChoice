@@ -27,3 +27,25 @@ def test_world_info():
     assert e["group"] == "地点"
     assert e["comment"] == "[地点] 主角起点"
     json.dumps(obj, ensure_ascii=False)
+
+
+def test_world_info_roundtrip():
+    from literary_agent.tavern import parse_world_info
+
+    entries = [WorldEntry(关键词=["雾镇"], 内容="终年有雾", 类别="地点", 备注="起点")]
+    obj = build_world_info(entries)
+    parsed = parse_world_info(obj)
+    assert parsed[0]["关键词"] == ["雾镇"]
+    assert parsed[0]["内容"] == "终年有雾"
+    assert parsed[0]["类别"] == "地点"
+
+
+def test_chara_card_roundtrip():
+    from literary_agent.tavern import parse_chara_card
+
+    card = CharacterCard(姓名="张三", 描述="主角", 性格="坚韧", 标签=["主角"])
+    obj = build_chara_card(card)
+    parsed = parse_chara_card(obj)
+    assert parsed["姓名"] == "张三"
+    assert parsed["描述"] == "主角"
+    assert parsed["标签"] == ["主角"]

@@ -54,6 +54,38 @@ class ReviewReport(BaseModel):
     修订意见: str = ""
 
 
+class AspectClassification(BaseModel):
+    """改写方面分类：剧情 / 人物 / 世界观。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    方面: Literal["剧情", "人物", "世界观"] = "世界观"
+    理由: str = ""
+
+
+class ModifyOutput(BaseModel):
+    """modify 节点输出：只改「方面」对应的语义字段，其余留空。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    世界条目: list[WorldEntry] = Field(default_factory=list)
+    角色卡: list[CharacterCard] = Field(default_factory=list)
+    剧本摘要: dict[str, str] = Field(default_factory=dict)
+    世界设定: str = ""
+
+
+class RewriteResult(BaseModel):
+    """rewrite 节点输出：改写正文 + 关键变化 + 冲突 + 后续方向。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    标题: str = ""
+    正文: str = ""
+    关键变化: list[str] = Field(default_factory=list)
+    设定冲突: list[str] = Field(default_factory=list)
+    后续方向: list[str] = Field(default_factory=list)
+
+
 class CharacterCard(BaseModel):
     """角色卡（酒馆 chara_card_v2 的语义字段）。"""
 
