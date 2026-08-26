@@ -43,6 +43,7 @@
                 '<textarea id="fnText" aria-label="读者终章正文" ' +
                   'placeholder="我读到的是……"></textarea>' +
               '</div>' +
+              '<section class="fn-edition" id="fnEdition" aria-label="选择要契名的故事版本"></section>' +
               '<footer class="fn-sheet-foot">' +
                 '<span class="fn-count" id="fnCount"></span>' +
                 '<span class="grow"></span>' +
@@ -78,6 +79,8 @@
       if (!b) return OW.App.go('library');
       D.getElementById('fnText').value = b.finale || '';
       D.getElementById('fnBook').textContent = b.title + ' · ' + b.author + ' 著';
+      if (!b.finalVersionBranchId && b.activeBranchId) b.finalVersionBranchId = b.activeBranchId;
+      OW.Store.commit(true);
       this.paint();
     },
 
@@ -85,6 +88,24 @@
     paint: function () {
       var b = OW.Store.book(this.bookId); if (!b) return;
       var pr = OW.Store.progress(b.id), R = OW.RULES;
+      var accepted = (b.branches || []).filter(function (x) { return x.status === 'accepted'; });
+
+      var edition = D.getElementById('fnEdition');
+      edition.innerHTML = '<div><strong>契名版本</strong><span>选择最终进入封面的故事路线</span></div>' +
+        '<div class="fn-edition-picks"><button class="btn btn--sm" data-edition="" aria-pressed="' +
+          (!b.finalVersionBranchId) + '">原作批注版</button>' +
+        accepted.map(function (branch) {
+          var depth = OW.Store.branchLineage(b.id, branch.id).length || 1;
+          return '<button class="btn btn--sm rd-rewrite-btn" data-edition="' + branch.id +
+            '" aria-pressed="' + (b.finalVersionBranchId === branch.id) + '">AI 改编 · ' +
+            SVG.esc(branch.title) + ' · ' + (depth > 1 ? depth + ' 级分支' : '第 1 分支') + '</button>';
+        }).join('') + '</div>';
+      edition.hidden = accepted.length === 0;
+      edition.onclick = function (e) {
+        var pick = e.target.closest('[data-edition]'); if (!pick) return;
+        b.finalVersionBranchId = pick.getAttribute('data-edition') || null;
+        OW.Store.commit(true); Fn.paint();
+      };
 
       /* 字数 */
       var cEl = D.getElementById('fnCount');
@@ -189,6 +210,8 @@
           '<input class="input input--quill" id="cfName" maxlength="10" ' +
             'value="' + SVG.esc(st.reader || '') + '" aria-label="你的署名">' +
           '<div class="preview" id="cfPrev"></div>' +
+          (b.finalVersionBranchId ? '<div class="cf-edition">AI 剧情覆写版 · ' +
+            SVG.esc((OW.Store.branch(b.id, b.finalVersionBranchId) || {}).title || '已采纳分支') + '</div>' : '') +
           '<div class="keep">原作者 <b>' + SVG.esc(b.author) + '</b> 的「著」始终保留，' +
             '你以「编注」的身份进入这本书。</div>' +
           '<div class="row">' +

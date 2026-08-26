@@ -152,6 +152,8 @@
 .cm[data-step="4"] .cover-ver,.cm[data-step="5"] .cover-ver,.cm[data-step="done"] .cover-ver{
   opacity:1;transition:opacity var(--t-rite) var(--ease);
 }
+.cover-edition{margin-top:var(--s2);display:inline-flex;align-self:center;padding:3px 9px;border:1px solid rgba(83,167,184,.46);border-radius:999px;color:var(--teal-magic);font-size:var(--fs-2xs);letter-spacing:.12em;background:rgba(83,167,184,.08)}
+.cm .cover-edition{opacity:0}.cm[data-step="4"] .cover-edition,.cm[data-step="5"] .cover-edition,.cm[data-step="done"] .cover-edition{opacity:1;transition:opacity var(--t-rite) var(--ease)}
 
 /* 步骤 5：契印落在封面 */
 .cover-seal{

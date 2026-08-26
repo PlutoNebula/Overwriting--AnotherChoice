@@ -344,7 +344,9 @@
 
             '<section class="drawer-sec">' +
               '<div class="hd">AI 设置</div>' +
-              '<div class="ai-note">' + OW.COPY.aiNo + '</div>' +
+              '<div class="field"><label for="setBase">接口地址</label>' +
+                '<input class="input" id="setBase" autocomplete="off" placeholder="https://api.deepseek.com" value="' +
+                  SVG.esc(st.ai.baseUrl || '') + '"></div>' +
               '<div class="field">' +
                 '<label for="setKey">接口密钥</label>' +
                 '<div class="key-row">' +
@@ -356,10 +358,24 @@
                   '密钥只存在你自己的浏览器里，不会写进项目、也不会上传。录屏时请保持掩码状态。' +
                 '</div>' +
               '</div>' +
+              '<div class="key-row">' +
+                '<div class="field grow"><label for="setModel">模型名称</label>' +
+                  '<input class="input" id="setModel" autocomplete="off" value="' +
+                    SVG.esc(st.ai.model || 'deepseek-chat') + '"></div>' +
+                '<div class="field" style="width:110px"><label for="setTimeout">超时（秒）</label>' +
+                  '<input class="input" id="setTimeout" type="number" min="10" max="120" value="' +
+                    (st.ai.timeout || 45) + '"></div>' +
+              '</div>' +
               '<div class="opt-row">' +
-                '<div><div class="lb">魔法助手</div>' +
-                  '<div class="ds">初赛版仅做预设演示，核心阅读与铭文不依赖它。</div></div>' +
-                '<span class="tag">未连接</span>' +
+                '<div><div class="lb">连接状态</div><div class="ds" id="setAiMessage">' +
+                  (OW.App.demo ? '演示模式已就绪，无需真实密钥。' : (st.ai.connected ? '上次连接测试成功。' : '尚未测试连接。')) +
+                  '</div></div><span class="tag" id="setAiStatus">' +
+                  (OW.App.demo ? '演示就绪' : (st.ai.connected ? '已连接' : '未连接')) + '</span>' +
+              '</div>' +
+              '<div class="row" style="justify-content:flex-end">' +
+                '<button class="btn btn--sm btn--ghost" id="setAiClear">清除密钥</button>' +
+                '<button class="btn btn--sm" id="setAiTest">测试连接</button>' +
+                '<button class="btn btn--sm btn--primary" id="setAiSave">保存设置</button>' +
               '</div>' +
             '</section>' +
 
@@ -417,8 +433,44 @@
         key.type = show ? 'text' : 'password';
         this.textContent = show ? '掩码' : '显示';
       });
-      key.addEventListener('change', function () {
-        var st2 = OW.Store.get(); st2.ai.key = key.value; OW.Store.commit();
+      function aiDraft() {
+        return {
+          baseUrl: wrap.querySelector('#setBase').value.trim(),
+          key: key.value.trim(),
+          model: wrap.querySelector('#setModel').value.trim(),
+          timeout: Math.max(10, Math.min(120, parseInt(wrap.querySelector('#setTimeout').value, 10) || 45))
+        };
+      }
+      wrap.querySelector('#setAiSave').addEventListener('click', function () {
+        var d = aiDraft();
+        if (!/^https?:\/\//i.test(d.baseUrl) || !d.model) return OW.toast('请填写完整的接口地址和模型名称。', 'warn');
+        var ai = OW.Store.get().ai;
+        ai.baseUrl = d.baseUrl; ai.key = d.key; ai.model = d.model; ai.timeout = d.timeout;
+        OW.Store.commit(); OW.toast('AI 设置已保存在本机浏览器。');
+      });
+      wrap.querySelector('#setAiClear').addEventListener('click', function () {
+        key.value = '';
+        var ai = OW.Store.get().ai; ai.key = ''; ai.connected = false; ai.checkedAt = null;
+        OW.Store.commit();
+        wrap.querySelector('#setAiStatus').textContent = OW.App.demo ? '演示就绪' : '未连接';
+        wrap.querySelector('#setAiMessage').textContent = '密钥已从本机浏览器中清除。';
+        OW.toast('接口密钥已清除。');
+      });
+      wrap.querySelector('#setAiTest').addEventListener('click', function () {
+        var btn = this, d = aiDraft(), msg = wrap.querySelector('#setAiMessage');
+        if (!d.key) return OW.toast('请先填写接口密钥再测试。', 'warn');
+        btn.disabled = true; btn.textContent = '测试中…'; msg.textContent = '正在连接模型，请稍候。';
+        OW.Api.testConnection(d).then(function () {
+          var ai = OW.Store.get().ai;
+          ai.baseUrl = d.baseUrl; ai.key = d.key; ai.model = d.model; ai.timeout = d.timeout;
+          ai.connected = true; ai.checkedAt = Date.now(); OW.Store.commit();
+          wrap.querySelector('#setAiStatus').textContent = '已连接'; msg.textContent = '连接成功，可以进行真实剧情覆写。';
+          OW.toast('AI 连接测试成功。');
+        }).catch(function (err) {
+          OW.Store.get().ai.connected = false; OW.Store.commit();
+          wrap.querySelector('#setAiStatus').textContent = '连接失败'; msg.textContent = err.message;
+          OW.toast(err.message, 'warn');
+        }).finally(function () { btn.disabled = false; btn.textContent = '测试连接'; });
       });
 
       wrap.querySelector('#setRestore').addEventListener('click', function () {

@@ -38,6 +38,8 @@
 .rd-bar .bk .s{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.12em}
 .rd-tools{display:flex;align-items:center;gap:var(--s1)}
 .rd-tools .rule-v{width:1px;height:20px;background:var(--ln-copper-soft);margin:0 var(--s2)}
+.rd-rewrite-btn{border-color:rgba(83,167,184,.46);color:var(--teal-magic);background:rgba(83,167,184,.06)}
+.rd-rewrite-btn:hover{border-color:var(--teal-magic);color:var(--parch-hi);box-shadow:var(--glow-teal)}
 
 /* 契印 + 完整度：顶栏常驻小尺寸，随时能看到进度 */
 .rd-sigil{display:flex;align-items:center;gap:var(--s3)}
@@ -252,6 +254,22 @@
 }
 .sel-pop button:hover{background:rgba(216,197,154,.08);color:var(--tx-hi)}
 .sel-pop button .sw{width:8px;height:8px;border-radius:50%;flex:none}
+.sel-pop .sel-divider{width:1px;height:22px;background:var(--ln-copper-soft);margin:0 3px}
+.sel-pop .sel-rewrite{border-color:rgba(83,167,184,.38);color:var(--teal-magic)}
+
+/* 原作之后显式展示已采纳的平行剧情；视觉上区分，但不伪装成原文。 */
+.branch-reading{margin-top:var(--s7);padding:var(--s5);border:1px solid rgba(83,167,184,.38);border-radius:var(--r-lg);background:linear-gradient(145deg,rgba(9,13,24,.96),rgba(36,23,53,.92));color:var(--tx-mid);box-shadow:var(--glow-teal)}
+.branch-reading header,.branch-reading footer{display:flex;justify-content:space-between;align-items:center;gap:var(--s3)}
+.branch-reading header{padding-bottom:var(--s3);border-bottom:1px solid rgba(83,167,184,.2)}
+.branch-reading h3{margin-top:5px;color:var(--parch-hi);font-size:var(--fs-lg)}
+.branch-reading article{padding:var(--s4) 0;border-bottom:1px solid var(--ln-hair)}
+.branch-reading article p{white-space:pre-wrap;font-size:var(--fs-md);line-height:2;text-align:justify}
+.branch-depth{display:block;margin-bottom:var(--s2);font-size:var(--fs-mono);color:var(--teal-magic);letter-spacing:.16em}
+.branch-reading footer{padding-top:var(--s3);font-size:var(--fs-xs);color:var(--tx-low)}
+.branch-reading footer>div{display:flex;gap:var(--s2)}
+.rewrite-callout{margin:var(--s7) 0 var(--s4);display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:var(--s3);padding:var(--s4);border:1px dashed var(--ln-copper);border-radius:var(--r-lg);background:rgba(122,88,50,.06)}
+.rewrite-callout-mark{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--ln-gold);border-radius:50%;color:var(--dusk-gold)}
+.rewrite-callout strong,.rewrite-callout span{display:block}.rewrite-callout strong{color:var(--page-tx);font-size:var(--fs-sm)}.rewrite-callout div>span{color:var(--page-tx-soft);font-size:var(--fs-xs);margin-top:3px}
 
 /* 翻页：只做稳定切换，不做纸张翻卷（§5.3 简化）*/
 .rd-foot{

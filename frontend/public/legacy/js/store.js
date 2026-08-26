@@ -84,6 +84,13 @@
   var subs = [];
   var S = null;
 
+  function normalizeBook(b) {
+    if (!Array.isArray(b.branches)) b.branches = [];
+    if (!('activeBranchId' in b)) b.activeBranchId = null;
+    if (!('finalVersionBranchId' in b)) b.finalVersionBranchId = null;
+    return b;
+  }
+
   function fresh() {
     return {
       firstRun: true,
@@ -93,7 +100,14 @@
       fontSize: 18,
       lineHeight: 2,
       books: OW.DATA.seedBooks(),
-      ai: { key: '', model: 'demo', connected: false },
+      ai: {
+        baseUrl: 'https://api.deepseek.com',
+        key: '',
+        model: 'deepseek-chat',
+        timeout: 45,
+        connected: false,
+        checkedAt: null
+      },
       versionCounter: 0
     };
   }
@@ -107,6 +121,11 @@
       // 老数据补齐字段，避免刷新后白屏
       var f = fresh();
       for (var k in f) if (!(k in S)) S[k] = f[k];
+      S.ai = S.ai || {};
+      for (var ak in f.ai) if (!(ak in S.ai)) S.ai[ak] = f.ai[ak];
+      // v1 只用 "demo" 作为占位模型；v1.2 开始它不是可调用的真实模型名。
+      if (S.ai.model === 'demo') S.ai.model = f.ai.model;
+      S.books.forEach(normalizeBook);
       if (opts.demo) OW.DATA.applyDemo(S);
       this.commit(true);
       return S;
@@ -131,7 +150,7 @@
       for (var i = 0; i < S.books.length; i++) if (S.books[i].id === id) return S.books[i];
       return null;
     },
-    addBook: function (b) { S.books.push(b); this.commit(); return b; },
+    addBook: function (b) { S.books.push(normalizeBook(b)); this.commit(); return b; },
     removeBook: function (id) {
       S.books = S.books.filter(function (b) { return b.id !== id; });
       this.commit();
@@ -157,7 +176,81 @@
         b.page = 0;
         b.firstInsDone = false;
         b.bookmarks = [];
+        b.branches = [];
+        b.activeBranchId = null;
+        b.finalVersionBranchId = null;
       });
+      this.commit();
+    },
+
+    /* ---------- AI 剧情覆写分支 ---------- */
+    branch: function (bookId, branchId) {
+      var b = this.book(bookId); if (!b || !branchId) return null;
+      normalizeBook(b);
+      for (var i = 0; i < b.branches.length; i++) {
+        if (b.branches[i].id === branchId) return b.branches[i];
+      }
+      return null;
+    },
+    addBranch: function (bookId, branch) {
+      var b = this.book(bookId); if (!b) return null;
+      normalizeBook(b);
+      branch.id = branch.id || ('rw' + Date.now() + Math.floor(Math.random() * 1000));
+      branch.status = branch.status || 'candidate';
+      branch.createdAt = branch.createdAt || Date.now();
+      branch.updatedAt = Date.now();
+      b.branches.push(branch);
+      this.commit();
+      return branch;
+    },
+    updateBranch: function (bookId, branchId, patch) {
+      var branch = this.branch(bookId, branchId); if (!branch) return null;
+      for (var k in patch) branch[k] = patch[k];
+      branch.updatedAt = Date.now();
+      this.commit();
+      return branch;
+    },
+    acceptBranch: function (bookId, branchId) {
+      var b = this.book(bookId), branch = this.branch(bookId, branchId);
+      if (!b || !branch) return null;
+      branch.status = 'accepted';
+      branch.updatedAt = Date.now();
+      b.activeBranchId = branch.id;
+      this.commit();
+      return branch;
+    },
+    setActiveBranch: function (bookId, branchId) {
+      var b = this.book(bookId); if (!b) return;
+      if (branchId && !this.branch(bookId, branchId)) return;
+      b.activeBranchId = branchId || null;
+      this.commit();
+    },
+    branchLineage: function (bookId, branchId) {
+      var out = [], seen = {}, cur = this.branch(bookId, branchId);
+      while (cur && !seen[cur.id]) {
+        seen[cur.id] = true;
+        out.unshift(cur);
+        cur = cur.parentId ? this.branch(bookId, cur.parentId) : null;
+      }
+      return out;
+    },
+    removeBranch: function (bookId, branchId) {
+      var b = this.book(bookId); if (!b) return;
+      normalizeBook(b);
+      var doomed = {};
+      doomed[branchId] = true;
+      var changed = true;
+      while (changed) {
+        changed = false;
+        b.branches.forEach(function (branch) {
+          if (branch.parentId && doomed[branch.parentId] && !doomed[branch.id]) {
+            doomed[branch.id] = true; changed = true;
+          }
+        });
+      }
+      b.branches = b.branches.filter(function (branch) { return !doomed[branch.id]; });
+      if (doomed[b.activeBranchId]) b.activeBranchId = null;
+      if (doomed[b.finalVersionBranchId]) b.finalVersionBranchId = null;
       this.commit();
     },
 
@@ -210,13 +303,15 @@
     },
 
     /* ---------- 契名 ---------- */
-    sign: function (bookId, penName) {
+    sign: function (bookId, penName, branchId) {
       var b = this.book(bookId); if (!b) return null;
       S.versionCounter++;
       b.signed = {
         reader: penName,
         // 原作者名字始终保留（§5.5 验收），这里不接受任何覆盖入参
         author: b.author,
+        branchId: branchId || b.finalVersionBranchId || null,
+        edition: (branchId || b.finalVersionBranchId) ? 'ai-rewrite' : 'annotated-original',
         no: S.versionCounter,
         at: Date.now()
       };

@@ -121,6 +121,10 @@
 }
 .fn-write textarea::placeholder{color:rgba(91,75,51,.45)}
 .fn-write textarea:focus{outline:none}
+.fn-edition{flex:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-top:var(--s3);padding:var(--s3);border:1px solid rgba(122,88,50,.25);border-radius:var(--r-md);background:rgba(122,88,50,.06);color:var(--parch-ink)}
+.fn-edition>div:first-child{display:flex;flex-direction:column}.fn-edition strong{font-size:var(--fs-xs)}.fn-edition>div:first-child span{font-size:var(--fs-2xs);color:var(--parch-ink-soft)}
+.fn-edition-picks{display:flex;justify-content:flex-end;gap:var(--s2);flex-wrap:wrap}.fn-edition-picks .btn[aria-pressed=true]{box-shadow:0 0 0 2px rgba(83,167,184,.35);border-color:var(--teal-magic)}
+.cf-edition{padding:var(--s2) var(--s3);border:1px solid rgba(83,167,184,.4);border-radius:var(--r-md);color:var(--teal-magic);font-size:var(--fs-xs);text-align:center}
 
 .fn-sheet-foot{
   flex:none;display:flex;align-items:center;gap:var(--s4);

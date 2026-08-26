@@ -65,7 +65,7 @@
   /* ==========================================================================
      App
      ========================================================================== */
-  var VIEWS = ['intro', 'signin', 'library', 'reader', 'overwrite', 'finale', 'ceremony', 'opus'];
+  var VIEWS = ['intro', 'signin', 'library', 'reader', 'rewrite', 'finale', 'ceremony', 'opus'];
 
   var App = {
     view: null,
@@ -86,13 +86,12 @@
       this.mountSignin();
       OW.Lib.mount(D.getElementById('view-library'));
       OW.Rd.mount(D.getElementById('view-reader'));
-      if (OW.Ow && OW.Ow.mount) OW.Ow.mount(D.getElementById('view-overwrite'));
+      OW.Rw.mount(D.getElementById('view-rewrite'));
       OW.Fn.mount(D.getElementById('view-finale'));
       OW.Cm.mount(D.getElementById('view-ceremony'));
       OW.Op.mount(D.getElementById('view-opus'));
 
       if (this.demo) {
-        D.getElementById('demoFlag').hidden = false;
         OW.Lib.render();
       }
 
@@ -130,6 +129,7 @@
     },
 
     openBook: function (id) { this.go('reader'); OW.Rd.open(id); },
+    openRewrite: function (ctx) { this.go('rewrite'); OW.Rw.open(ctx); },
     openFinale: function (id) { this.go('finale'); OW.Fn.open(id); },
     openCeremony: function (id, name) { this.go('ceremony'); OW.Cm.open(id, name); },
     openOpus: function (id) { this.go('opus'); OW.Op.open(id); },
