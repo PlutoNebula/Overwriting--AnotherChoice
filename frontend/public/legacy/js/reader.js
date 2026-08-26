@@ -39,14 +39,27 @@
               '<span class="s" id="rdSub"></span></div>' +
             '<div class="rd-sigil" id="rdSigil"></div>' +
             '<div class="rd-tools">' +
-              '<span class="rule-v"></span>' +
-              '<button class="btn btn--icon" id="rdNight" aria-label="日夜切换"></button>' +
-              '<button class="btn btn--icon" id="rdMark" aria-label="加书签" ' +
-                'title="给当前一节加书签">' + SVG.icon('mark') + '</button>' +
-              '<span class="rule-v"></span>' +
-              '<button class="btn btn--sm" id="rdIns">' + SVG.icon('ins', 15) +
-                ' 铭文</button>' +
-              '<button class="btn btn--sm btn--primary" id="rdFin">读者终章</button>' +
+              '<span class="tool-group">' +
+                '<button class="btn btn--icon" id="rdNight" aria-label="日夜切换"></button>' +
+                '<button class="btn btn--icon" id="rdMark" aria-label="加书签" ' +
+                  'title="给当前一节加书签">' + SVG.icon('mark') + '</button>' +
+              '</span>' +
+              '<span class="tool-group">' +
+                '<button class="btn btn--sm" id="rdIns">' + SVG.icon('ins', 15) +
+                  ' 铭文</button>' +
+              '</span>' +
+              '<span class="tool-group">' +
+                '<button class="btn btn--overwrite" id="rdOw" ' +
+                  'title="打开剧情覆写工作台" aria-label="AI 改编">' +
+                  '<svg class="spark" viewBox="0 0 12 12" aria-hidden="true">' +
+                    '<path d="M6 0.5l1.4 3.2 3.1.3-2.4 2.1.7 3-2.8-1.6-2.8 1.6.7-3-2.4-2.1 3.1-.3z"/>' +
+                  '</svg>' +
+                  '✦ AI 改编' +
+                '</button>' +
+              '</span>' +
+              '<span class="tool-group">' +
+                '<button class="btn btn--sm btn--primary" id="rdFin">读者终章</button>' +
+              '</span>' +
             '</div>' +
           '</header>' +
 
@@ -84,6 +97,11 @@
 
       /* 铭文面板也参与互斥：打开它就收起左侧面板 */
       D.getElementById('rdIns').addEventListener('click', function () { self.setPanel('inscription'); });
+
+      /* AI 改编 · 从阅读器顶栏进入工作台（默认从本章结尾改编） */
+      D.getElementById('rdOw').addEventListener('click', function () {
+        if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
+      });
 
       D.getElementById('rdMark').addEventListener('click', function () { self.addBookmark(); });
 
@@ -327,6 +345,18 @@
       inner.style.setProperty('--rd-lh', st.lineHeight);
 
       var self = this;
+      var chs = b.chapters || [];
+      var isLast = idx >= chs.length - 1;
+
+      var outroHtml = isLast ? '' :
+        '<div class="ch-outro" id="rdChOutro" role="button" tabindex="0" ' +
+          'aria-label="故事也许可以不这样发生 · 打开剧情覆写工作台">' +
+          '<div class="eyebrow">Overwrite Workshop · §5.6</div>' +
+          '<div class="line">故事也许可以不这样发生……</div>' +
+          '<div class="hint">从这一章的结尾开始，写一条只属于你的分支</div>' +
+          '<span class="cta">' + SVG.icon('right', 11) + ' 打开覆写工作台</span>' +
+        '</div>';
+
       inner.innerHTML =
         '<header class="page-head">' +
           '<div class="ch">Chapter ' + (idx + 1) + '</div>' +
@@ -338,7 +368,23 @@
           ch.paras.map(function (t, pi) {
             return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
           }).join('') +
-        '</div>';
+        '</div>' +
+        outroHtml;
+
+      if (!isLast) {
+        var outro = D.getElementById('rdChOutro');
+        if (outro) {
+          outro.addEventListener('click', function () {
+            if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
+          });
+          outro.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
+            }
+          });
+        }
+      }
     },
 
     /** 把某段的铭文标记套进正文。同段多条按起点排序，互不重叠。 */
@@ -523,7 +569,15 @@
       pop.innerHTML = OW.KINDS.map(function (k) {
         return '<button data-k="' + k.id + '" title="' + k.name + '：' + k.gloss + '">' +
           '<i class="sw" style="background:' + k.color + '"></i>' + k.name + '</button>';
-      }).join('');
+      }).join('') +
+        '<span class="sel-sep"></span>' +
+        '<button class="sel-ow" data-ow ' +
+          'title="从这里开始，进入剧情覆写工作台">' +
+          '<svg class="spark" viewBox="0 0 12 12" aria-hidden="true">' +
+            '<path d="M6 0.5l1.4 3.2 3.1.3-2.4 2.1.7 3-2.8-1.6-2.8 1.6.7-3-2.4-2.1 3.1-.3z"/>' +
+          '</svg>' +
+          '从这里改写' +
+        '</button>';
       pop.classList.add('is-on');
 
       var r = range.getBoundingClientRect();
@@ -535,6 +589,13 @@
       pop.style.top = Math.round(y) + 'px';
 
       pop.onclick = function (e) {
+        if (e.target.closest('button[data-ow]')) {
+          var s = self.sel; if (!s) return;
+          self.hidePop();
+          if (w.getSelection) { try { w.getSelection().removeAllRanges(); } catch (_) {} }
+          if (OW.Ow && OW.Ow.openFromSelection) OW.Ow.openFromSelection(self.bookId, s);
+          return;
+        }
         var b = e.target.closest('button[data-k]');
         if (!b) return;
         self.openEditor('new', { kind: b.getAttribute('data-k') });
@@ -623,6 +684,8 @@
         if (e.target.closest('[data-collapse]')) {
           self.selectedIns = null;
           self.renderAside(b);
+        } else if (e.target.closest('[data-ow]')) {
+          if (OW.Ow && OW.Ow.openFromInscription) OW.Ow.openFromInscription(self.bookId, id);
         } else if (e.target.closest('[data-edit]')) {
           var ins = find(b, id);
           if (ins) self.openEditor('edit', ins);
@@ -703,6 +766,11 @@
         '<div class="quote">「' + SVG.esc(i.quote) + '」</div>' +
         '<div class="body">' + SVG.esc(i.body) + '</div>' +
         '<div class="acts">' +
+          (i.kind === 'cont'
+            ? '<button class="btn btn--sm btn--overwrite-inline" data-ow ' +
+                'title="把这条想法作为改编意图，进入工作台">' +
+                SVG.icon('star', 13) + ' 将这条想法发展为剧情</button>'
+            : '') +
           '<button class="btn btn--sm btn--ghost" data-edit>' + SVG.icon('edit', 13) + ' 编辑</button>' +
           '<button class="btn btn--sm btn--ghost btn--danger" data-del>' +
             SVG.icon('trash', 13) + ' 删除</button>' +

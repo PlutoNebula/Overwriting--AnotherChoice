@@ -65,7 +65,7 @@
   /* ==========================================================================
      App
      ========================================================================== */
-  var VIEWS = ['intro', 'signin', 'library', 'reader', 'finale', 'ceremony', 'opus'];
+  var VIEWS = ['intro', 'signin', 'library', 'reader', 'overwrite', 'finale', 'ceremony', 'opus'];
 
   var App = {
     view: null,
@@ -86,6 +86,7 @@
       this.mountSignin();
       OW.Lib.mount(D.getElementById('view-library'));
       OW.Rd.mount(D.getElementById('view-reader'));
+      if (OW.Ow && OW.Ow.mount) OW.Ow.mount(D.getElementById('view-overwrite'));
       OW.Fn.mount(D.getElementById('view-finale'));
       OW.Cm.mount(D.getElementById('view-ceremony'));
       OW.Op.mount(D.getElementById('view-opus'));
