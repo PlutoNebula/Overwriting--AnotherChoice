@@ -236,6 +236,115 @@ curl -X POST http://localhost:8000/api/generate \
 
 ---
 
+### 6. 改写（覆写）后文
+
+`POST /api/overwrite`
+
+从故事的某一段开始改写后续剧情。内部流程：**确认修改方面（剧情/人物/世界观）→ 修改相应世界书并另存 → 改写后文 → review 回路（不通过则回改）**，最终返回分支正文与关键变化/设定冲突/后续方向。
+
+**请求**：`application/json`（与前端 `overwrite.js` 的 `_buildPayload` 对齐）
+
+```json
+{
+  "book":   { "id": "demo", "title": "雾镇旅人", "author": "佚名" },
+  "origin": { "ch": 0, "ch_title": "第 1 节", "para": 2, "quote": "森林里迷雾越来越浓", "mode": "from-selection", "from_ins": null },
+  "context": "本章最后几段原文（\n\n 拼接）",
+  "prompt": "让主角失败并黑化",
+  "tones": ["darker", "twisty"],
+  "strength": "strong",
+  "constraints": "李四不能死"
+}
+```
+
+| 字段 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `book` | object | — | 秘典信息（id/title/author） |
+| `origin` | object | — | 起点：`ch` 章节索引、`para` 段落、`quote` 选中原文、`mode`（`from-selection`/`end-of-chapter`/`from-inscription`） |
+| `context` | string | `""` | 起点章节最后几段原文（前文） |
+| `prompt` | string | `""` | 改写意图（≥4 字） |
+| `tones` | string[] | `[]` | 剧情倾向，多选（darker/gentler/twisty/noir/romantic/political/mythic/grounded） |
+| `strength` | string | `"medium"` | 推演强度（soft/medium/strong） |
+| `constraints` | string | `""` | 必须保留的设定 |
+
+**响应**
+
+```json
+{
+  "title": "分支 · 失败并黑化",
+  "narrative": "改写后的后续剧情…",
+  "changes": ["关键变化…"],
+  "conflicts": ["设定冲突…"],
+  "nextDirections": ["后续可选方向…"],
+  "strength": "strong",
+  "demo": false
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `title` | string | 分支标题 |
+| `narrative` | string | 改写后的后续剧情正文 |
+| `changes` | array | 相对原作的关键变化 |
+| `conflicts` | array | 需要交代的设定冲突 |
+| `nextDirections` | array | 后续可选剧情走向 |
+| `strength` | string | 回传推演强度 |
+| `demo` | bool | 无 API Key 或 LLM 失败时回退演示，为 `true` |
+
+**另存**：若 `works/<book.title 或 book.id>/` 已存在世界书，修改后的世界书会**单独存到 `works/<作品>/改写/<branch_id>/世界书/`**，原件不覆盖；否则为无状态直改（不落盘）。
+
+**错误**：`500` 缺 API Key 且非 demo 时的运行错误（当前实现会回退 demo 而非报错）。
+
+**curl 示例**
+
+```bash
+curl -X POST http://localhost:8000/api/overwrite \
+  -H "Content-Type: application/json" \
+  -d '{"book":{"title":"雾镇旅人"},"origin":{"ch":0,"quote":"森林里迷雾越来越浓","mode":"from-selection"},"context":"……","prompt":"让主角失败并黑化","tones":["darker"],"strength":"strong"}'
+```
+
+---
+
+### 7. 全书顺序改写（逐章）
+
+`POST /api/overwrite/chapter`
+
+对一条分支逐章续写：一次改写一章，返回该章新正文与摘要，供前端顺序调用直至全书结束。**与 `/api/overwrite` 走同一套完整流水线**（classify → 改世界书另存 → 改写 → review 回路）。
+
+**请求**：`application/json`
+
+```json
+{
+  "book":   { "id": "demo", "title": "雾镇旅人", "author": "佚名" },
+  "branch": { "id": "br1", "no": 1, "title": "分支" },
+  "origin": { "ch": 0, "ch_title": "第 1 节", "quote": "", "mode": "end-of-chapter" },
+  "target": { "ch": 1, "ch_title": "第 2 节", "origin_text": "待改写的本章原文" },
+  "prev_summaries":  [ { "ch": 0, "title": "第 1 节", "summary": "…" } ],
+  "prev_two_chapters": [ { "ch": 0, "title": "第 1 节", "narrative": "…" } ],
+  "prompt": "让主角失败并黑化",
+  "tones": ["darker"],
+  "strength": "strong",
+  "constraints": "李四不能死"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `book` | object | 秘典信息 |
+| `branch` | object | 当前分支（id/no/title） |
+| `origin` | object | 分支起点 |
+| `target` | object | 待改写章节：`ch` 章节索引、`ch_title`、`origin_text` 原文 |
+| `prev_summaries` | array | 前面章节摘要（长线连贯参考） |
+| `prev_two_chapters` | array | 上两章正文（近景语气参考） |
+| `prompt`/`tones`/`strength`/`constraints` | — | 同 `/api/overwrite` |
+
+**响应**
+
+```json
+{ "title": "分支 · 第 2 节", "narrative": "本章新正文…", "summary": "60–140 字本章摘要…", "demo": false }
+```
+
+---
+
 ## 生成产物结构（`outputs` / `files`）
 
 每个作品对应 `works/<作品名>/` 下的目录结构：

@@ -86,6 +86,16 @@ class RewriteResult(BaseModel):
     后续方向: list[str] = Field(default_factory=list)
 
 
+class RewriteChapterResult(BaseModel):
+    """rewrite_chapter 节点输出：章节新正文 + 摘要。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    标题: str = ""
+    正文: str = ""
+    摘要: str = ""
+
+
 class CharacterCard(BaseModel):
     """角色卡（酒馆 chara_card_v2 的语义字段）。"""
 

@@ -12,7 +12,7 @@ from langgraph.graph import END, StateGraph
 
 from . import prompts, tavern
 from .llm import call_json
-from .schemas import AspectClassification, ModifyOutput, ReviewReport, RewriteResult
+from .schemas import AspectClassification, ModifyOutput, ReviewReport, RewriteChapterResult, RewriteResult
 from .storage import atomic_write, render_review_report, sanitize_name
 
 
@@ -111,10 +111,10 @@ def load_node(state: dict, settings) -> dict:
     return {"has_worldbook": False, "artifacts": {}, "status": "loaded-stateless"}
 
 
-def classify_node(state: dict, llm) -> dict:
+def classify_node(state: dict, llm, builder=None) -> dict:
     if state.get("aspect"):
         return {}
-    user = prompts.build_classify_user(state)
+    user = (builder or prompts.build_classify_user)(state)
     try:
         r = call_json(llm, prompts.CLASSIFY_SYSTEM, user, AspectClassification)
         return {"aspect": r.方面, "aspect_reason": r.理由}
@@ -263,5 +263,142 @@ def run_overwrite(payload: dict, settings=None, llm=None, checkpointer=None, max
     config = {
         "recursion_limit": 100,
         "configurable": {"thread_id": book.get("id") or book.get("title") or "overwrite"},
+    }
+    return graph.invoke(initial, config)
+
+
+# ---------------------------------------------------------------------------
+# 全书顺序改写：一次一章（/api/overwrite/chapter）
+# ---------------------------------------------------------------------------
+
+
+class OverwriteChapterState(TypedDict, total=False):
+    book_id: str
+    book_title: str
+    book_author: str
+    branch: dict
+    origin: dict
+    target: dict
+    prev_summaries: list
+    prev_two_chapters: list
+    context: str
+    prompt: str
+    tones: list[str]
+    strength: str
+    constraints: str
+    aspect: str
+    aspect_reason: str
+    has_worldbook: bool
+    artifacts: dict[str, str]
+    modified_artifacts: dict[str, str]
+    result: dict
+    review_history: Annotated[list[dict], operator.add]
+    review_feedback: str
+    review_passed: bool
+    revision_count: int
+    branch_dir: str
+    errors: Annotated[list[str], operator.add]
+    status: str
+
+
+def _fmt_chapter_context(state: dict) -> str:
+    parts: list[str] = []
+    for it in state.get("prev_summaries") or []:
+        if not isinstance(it, dict):
+            continue
+        ch = it.get("ch", 0)
+        title = (it.get("title") or "").strip()
+        summary = (it.get("summary") or "").strip()
+        parts.append(f"- 第 {int(ch) + 1} 节{'『' + title + '』' if title else ''}：{summary or '（无）'}")
+    for it in state.get("prev_two_chapters") or []:
+        if not isinstance(it, dict):
+            continue
+        ch = it.get("ch", 0)
+        title = (it.get("title") or "").strip()
+        narrative = (it.get("narrative") or "").strip()
+        parts.append(f"—— 第 {int(ch) + 1} 节{'『' + title + '』' if title else ''} ——\n{narrative or '（空）'}")
+    return "\n\n".join(parts)
+
+
+def chapter_load_node(state: dict, settings) -> dict:
+    base = load_node(state, settings)
+    base["context"] = _fmt_chapter_context(state)
+    return base
+
+
+def chapter_rewrite_node(state: dict, llm) -> dict:
+    user = prompts.build_chapter_rewrite_user(state)
+    try:
+        r = call_json(llm, prompts.REWRITE_CHAPTER_SYSTEM, user, RewriteChapterResult)
+        return {"result": r.model_dump()}
+    except Exception as e:  # noqa: BLE001
+        return {"result": {"标题": "", "正文": "", "摘要": ""}, "errors": [f"章节改写失败: {e}"]}
+
+
+def build_overwrite_chapter_graph(settings, llm, checkpointer=None, max_revisions=None):
+    max_rev = settings.max_revisions if max_revisions is None else max_revisions
+
+    g = StateGraph(OverwriteChapterState)
+    g.add_node("load", partial(chapter_load_node, settings=settings))
+    g.add_node("classify", partial(classify_node, llm=llm, builder=prompts.build_chapter_classify_user))
+    g.add_node("modify", partial(modify_node, llm=llm))
+    g.add_node("rewrite", partial(chapter_rewrite_node, llm=llm))
+    g.add_node("review", partial(review_node, llm=llm))
+    g.add_node("save", partial(save_node, settings=settings))
+
+    g.set_entry_point("load")
+    g.add_edge("load", "classify")
+    g.add_edge("classify", "modify")
+    g.add_edge("modify", "rewrite")
+    g.add_edge("rewrite", "review")
+    g.add_conditional_edges(
+        "review",
+        partial(route_after_review, max_revisions=max_rev),
+        {"modify": "modify", "save": "save"},
+    )
+    g.add_edge("save", END)
+
+    if checkpointer is None:
+        checkpointer = MemorySaver()
+    return g.compile(checkpointer=checkpointer)
+
+
+def run_overwrite_chapter(payload: dict, settings=None, llm=None, checkpointer=None, max_revisions=None) -> dict:
+    """执行一次逐章改写：返回含 result/aspect/branch_dir 的最终 State。"""
+    from .config import load_settings
+
+    if settings is None:
+        settings = load_settings()
+    if llm is None:
+        from .llm import build_llm
+
+        llm = build_llm(settings)
+
+    graph = build_overwrite_chapter_graph(
+        settings, llm=llm, checkpointer=checkpointer, max_revisions=max_revisions
+    )
+    book = payload.get("book") or {}
+    branch = payload.get("branch") or {}
+    origin = payload.get("origin") or {}
+    target = payload.get("target") or {}
+    initial = {
+        "book_id": book.get("id", ""),
+        "book_title": book.get("title", ""),
+        "book_author": book.get("author", ""),
+        "branch": branch,
+        "origin": origin,
+        "target": target,
+        "prev_summaries": payload.get("prev_summaries", []) or [],
+        "prev_two_chapters": payload.get("prev_two_chapters", []) or [],
+        "prompt": payload.get("prompt", ""),
+        "tones": payload.get("tones", []) or [],
+        "strength": payload.get("strength", "medium"),
+        "constraints": payload.get("constraints", ""),
+        "revision_count": 0,
+        "review_passed": False,
+    }
+    config = {
+        "recursion_limit": 100,
+        "configurable": {"thread_id": book.get("id") or book.get("title") or "overwrite-chapter"},
     }
     return graph.invoke(initial, config)

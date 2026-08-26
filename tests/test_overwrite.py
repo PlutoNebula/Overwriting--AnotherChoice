@@ -5,7 +5,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from literary_agent.config import Settings
 from literary_agent.mock_llm import MockLLM
-from literary_agent.overwrite import run_overwrite
+from literary_agent.overwrite import run_overwrite, run_overwrite_chapter
 
 
 def _payload() -> dict:
@@ -64,3 +64,29 @@ def test_overwrite_review_loop(tmp_dir):
     assert final["review_passed"] is True
     assert final["revision_count"] >= 1
     assert len(final["review_history"]) == 2
+
+
+def _chapter_payload() -> dict:
+    return {
+        "book": {"id": "demo", "title": "雾镇旅人", "author": "测试"},
+        "branch": {"id": "br1", "no": 1, "title": "分支"},
+        "origin": {"ch": 0, "ch_title": "第 1 节", "quote": "", "mode": "end-of-chapter"},
+        "target": {"ch": 1, "ch_title": "第 2 节", "origin_text": "原第 2 节正文。"},
+        "prev_summaries": [{"ch": 0, "title": "第 1 节", "summary": "主角离开雾镇。"}],
+        "prev_two_chapters": [{"ch": 0, "title": "第 1 节", "narrative": "张三离开雾镇。"}],
+        "prompt": "让主角失败并黑化",
+        "tones": ["darker"],
+        "strength": "strong",
+        "constraints": "李四不能死",
+    }
+
+
+def test_overwrite_chapter(tmp_dir):
+    settings = Settings(works_dir=tmp_dir / "works")
+    llm = MockLLM(review_mode="pass")
+    final = run_overwrite_chapter(_chapter_payload(), settings=settings, llm=llm, checkpointer=MemorySaver())
+
+    assert final["result"]["正文"]
+    assert final["result"]["摘要"]
+    assert final["aspect"] == "剧情"
+    assert final["review_passed"] is True

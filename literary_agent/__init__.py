@@ -4,6 +4,13 @@
 """
 
 from .graph import build_graph, run_pipeline
-from .overwrite import build_overwrite_graph, run_overwrite
+from .overwrite import build_overwrite_chapter_graph, build_overwrite_graph, run_overwrite, run_overwrite_chapter
 
-__all__ = ["build_graph", "run_pipeline", "build_overwrite_graph", "run_overwrite"]
+__all__ = [
+    "build_graph",
+    "run_pipeline",
+    "build_overwrite_graph",
+    "run_overwrite",
+    "build_overwrite_chapter_graph",
+    "run_overwrite_chapter",
+]

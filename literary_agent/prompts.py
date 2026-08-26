@@ -261,3 +261,57 @@ def build_rewrite_review_user(state: dict) -> str:
         result.get("正文", ""),
     ]
     return "\n".join(parts)
+
+
+REWRITE_CHAPTER_SYSTEM = """【任务类型】rewrite_chapter
+你是一名小说改编写手，正在为一条「分支剧情」续写/改写后续章节。
+
+只输出一个合法的 JSON 对象（不要用 markdown 代码块包裹）：
+{"标题": "不超过 20 字的章节标题", "正文": "本章新正文（300-900 字，分段）", "摘要": "60-140 字本章摘要，供后续章节续写参考"}
+
+要求：
+1. 严格延续分支叙事走向，不要回到原作的既定落点。
+2. 人物、地名、专有术语与原作一致；参照「前情」保持长线连贯与语气一致。
+3. 与「修改后的世界书」保持一致，不得矛盾。
+4. 只依据给出的原文与前情，不臆造无关设定。
+"""
+
+
+def build_chapter_classify_user(state: dict) -> str:
+    target = state.get("target") or {}
+    parts = [
+        "=== 改写意图 ===",
+        state.get("prompt", ""),
+        "=== 待改写章节原文 ===",
+        target.get("origin_text", ""),
+        "=== 前情（前章摘要 + 上两章正文） ===",
+        state.get("context", ""),
+    ]
+    return "\n".join(parts)
+
+
+def build_chapter_rewrite_user(state: dict) -> str:
+    target = state.get("target") or {}
+    branch = state.get("branch") or {}
+    parts = [
+        "=== 秘典 / 分支 ===",
+        f"《{state.get('book_title', '')}》 · 分支 {branch.get('no', '?')}「{branch.get('title', '')}」",
+        f"=== 待改写的本章原文（第 {int(target.get('ch', 0)) + 1} 节） ===",
+        target.get("origin_text", ""),
+        "=== 前情（前章摘要 + 上两章正文） ===",
+        state.get("context", ""),
+        "=== 改写意图 ===",
+        state.get("prompt", ""),
+        "=== 剧情倾向 ===",
+        ", ".join(state.get("tones", [])) or "未指定",
+        "=== 推演强度 ===",
+        state.get("strength", ""),
+        "=== 必须保留的设定 ===",
+        state.get("constraints", "") or "无",
+        "=== 修改后的世界书 ===",
+        json.dumps(state.get("modified_artifacts", {}), ensure_ascii=False, indent=2),
+    ]
+    if state.get("review_feedback"):
+        parts.append("\n=== 上一轮修订意见 ===")
+        parts.append(state["review_feedback"])
+    return "\n".join(parts)

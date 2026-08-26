@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 def _detect_task(messages) -> str:
     for m in messages:
         content = m.content if isinstance(m.content, str) else ""
-        for tag in ("classify", "modify", "rewrite_review", "rewrite", "analyze", "assemble", "review"):
+        for tag in ("classify", "modify", "rewrite_review", "rewrite_chapter", "rewrite", "analyze", "assemble", "review"):
             if f"【任务类型】{tag}" in content:
                 return tag
     return "analyze"
@@ -71,6 +71,12 @@ SAMPLE_REWRITE = {
     "后续方向": ["让李四先一步发现第八张桌", "让守林人重新出现"],
 }
 
+SAMPLE_REWRITE_CHAPTER = {
+    "标题": "分支 · 第 1 节",
+    "正文": "（本章新正文示例）",
+    "摘要": "本章承接分支走向，主角做出新的选择。",
+}
+
 PASS_REPORT = {
     "通过": True,
     "评分": {"一致性": 5, "完整性": 5, "准确性": 5, "去重": 5, "可读性": 5},
@@ -107,6 +113,8 @@ class MockLLM:
             return AIMessage(content=json.dumps(SAMPLE_MODIFY, ensure_ascii=False))
         if task == "rewrite":
             return AIMessage(content=json.dumps(SAMPLE_REWRITE, ensure_ascii=False))
+        if task == "rewrite_chapter":
+            return AIMessage(content=json.dumps(SAMPLE_REWRITE_CHAPTER, ensure_ascii=False))
         if task in ("review", "rewrite_review"):
             self.review_calls += 1
             if self.review_mode == "fail_then_pass" and self.review_calls == 1:
