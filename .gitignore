@@ -19,8 +19,14 @@ tmp_test_*/
 works/
 *.sqlite
 *.sqlite3
+checkpoint.sqlite*
 .uv-cache/
 Agent系统通用设计模式.md
+
+# 前端构建产物与依赖
+node_modules/
+dist/
+.vite/
 
 # 编辑器 / 系统
 .DS_Store

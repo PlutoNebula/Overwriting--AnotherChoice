@@ -1,0 +1,33 @@
+/*
+ * React 开场动画的全局样式：仅作用于 #intro-root。
+ * 不再把 html/body/#root 一起铺满 + overflow:hidden——那会破坏 web 主体的滚动。
+ */
+#intro-root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 9999;
+  color-scheme: dark;
+  font-family: Georgia, '华文楷体', 'STKaiti', 'KaiTi', serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  transition: opacity 0.6s ease;
+}
+
+/* App.tsx 在动画结束后打上 data-done，让 web 主体接管交互 */
+#intro-root[data-done='1'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#intro-root *,
+#intro-root *::before,
+#intro-root *::after {
+  box-sizing: border-box;
+}
+
+#intro-root button {
+  font: inherit;
+}

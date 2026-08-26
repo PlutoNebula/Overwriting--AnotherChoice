@@ -5,6 +5,7 @@ description = "LangGraph + DeepSeek 中短篇文学作品解读 Agent 系统"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "langgraph",
+    "langgraph-checkpoint-sqlite",
     "langchain-core",
     "langchain-openai",
     "pydantic",

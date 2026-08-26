@@ -55,9 +55,12 @@ class GenerateResponse(BaseModel):
 def _make_checkpointer():
     """优先 SQLite 持久化（断点续跑），失败退回内存。"""
     try:
+        import sqlite3
+
         from langgraph.checkpoint.sqlite import SqliteSaver
 
-        return SqliteSaver.from_conn_string("checkpoint.sqlite")
+        conn = sqlite3.connect("checkpoint.sqlite", check_same_thread=False)
+        return SqliteSaver(conn)
     except Exception:  # noqa: BLE001
         from langgraph.checkpoint.memory import MemorySaver
 
@@ -166,4 +169,4 @@ def get_work(work_id: str) -> dict:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000)

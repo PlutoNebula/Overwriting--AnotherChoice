@@ -82,7 +82,7 @@
       OW.Store.init({ demo: this.demo });
       this.applyTheme();
 
-      OW.Intro.mount(D.getElementById('view-intro'));
+      // 开场动画由 React（src/main.tsx）挂在 #intro-root 上，此处不再挂 OW.Intro。
       this.mountSignin();
       OW.Lib.mount(D.getElementById('view-library'));
       OW.Rd.mount(D.getElementById('view-reader'));
@@ -95,12 +95,8 @@
         OW.Lib.render();
       }
 
-      // 从开场进入；?autoplay=1 直接播（给录屏用）
+      // 从开场进入。?autoplay=1 由 IntroScene 自己处理（见 src/intro/IntroScene.tsx）。
       this.go('intro');
-      if (this.autoplay) {
-        var ms = OW.reduced() ? 60 : 420;
-        w.setTimeout(function () { OW.Intro.play(); }, ms);
-      }
     },
 
     /* ---------- 路由 ---------- */
@@ -126,10 +122,10 @@
     },
 
     replayIntro: function () {
-      OW.Intro.rearm();
+      var root = D.getElementById('intro-root');
+      if (root) root.removeAttribute('data-done');
+      w.dispatchEvent(new CustomEvent('overwriting:replay-intro'));
       this.go('intro');
-      var ms = OW.reduced() ? 40 : 260;
-      w.setTimeout(function () { OW.Intro.play(); }, ms);
     },
 
     openBook: function (id) { this.go('reader'); OW.Rd.open(id); },
@@ -216,7 +212,9 @@
     wipe: function () {
       OW.Store.reset();
       this.applyTheme();
-      OW.Intro.rearm();
+      var root = D.getElementById('intro-root');
+      if (root) root.removeAttribute('data-done');
+      w.dispatchEvent(new CustomEvent('overwriting:replay-intro'));
       this.go('intro');
       OW.toast('已回到首次使用状态。');
     }
