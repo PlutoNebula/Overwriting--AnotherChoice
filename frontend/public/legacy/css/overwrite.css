@@ -772,10 +772,10 @@
    页面还是同一张羊皮纸，只在起点处插一条细头栏说明"下面开始是分支 NN"，
    随后段落继承 .prose 的字号 / 行距，读起来和原文连贯。 */
 .rd-branch-inline{margin:0}
+/* 原文已被替换，头栏直接顶在正文开头；仅保留一条底线做起始信号 */
 .rd-branch-hd--inline{
   display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
-  margin:1.6em 0 1em;padding:6px 0;
-  border-top:1px solid rgba(122,88,50,.42);
+  margin:0 0 1em;padding:0 0 6px;
   border-bottom:1px solid rgba(122,88,50,.24);
 }
 .rd-branch-hd--inline .rd-br-badge{

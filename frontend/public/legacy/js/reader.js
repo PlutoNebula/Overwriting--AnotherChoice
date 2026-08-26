@@ -561,26 +561,14 @@
           '<span class="cta">' + SVG.icon('right', 11) + ' 打开覆写工作台</span>' +
         '</div>';
 
-      /* 分支替换：当前分支线上、起点在本章的最深分支若存在，直接替换正文。
-         选段起点：保留起点段之前的原文，起点段之后由分支正文接管。
-         整章起点（end-of-chapter / from-inscription 无 para）：全章原文之后接分支正文。 */
+      /* 分支替换：当前分支线上、起点在本章的最深分支若存在，
+         直接用分支正文完整替换原文（原文不显示）。 */
       var br = self._activeBranchForChapter(b, idx);
-      var proseHtml;
-      if (br) {
-        var cutBefore = ch.paras.length;
-        if (br.origin && br.origin.mode === 'from-selection' &&
-            typeof br.origin.para === 'number') {
-          cutBefore = Math.max(0, Math.min(br.origin.para, ch.paras.length));
-        }
-        var keptParas = ch.paras.slice(0, cutBefore).map(function (t, pi) {
-          return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
-        }).join('');
-        proseHtml = keptParas + self._branchInlineHtml(br);
-      } else {
-        proseHtml = ch.paras.map(function (t, pi) {
-          return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
-        }).join('');
-      }
+      var proseHtml = br
+        ? self._branchInlineHtml(br)
+        : ch.paras.map(function (t, pi) {
+            return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
+          }).join('');
 
       inner.innerHTML =
         '<header class="page-head">' +
