@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from literary_agent.config import load_settings
 from literary_agent.graph import run_pipeline
 from literary_agent.mock_llm import MockLLM
-from literary_agent.overwrite import run_overwrite
+from literary_agent.overwrite import run_overwrite, run_overwrite_chapter
 from literary_agent.storage import sanitize_name
 
 ALLOWED_SUFFIXES = (".txt", ".md")
@@ -173,6 +173,14 @@ def get_work(work_id: str) -> dict:
 # ----------------------------------------------------------------------------
 # POST /api/overwrite         起点章一次性推演（Stage 3 结果）
 # POST /api/overwrite/chapter 全书顺序改写：后续每一章调用一次
+#
+# 下面四个下划线函数（_overwrite_stub / _build_overwrite_prompt /
+# _chapter_stub / _build_chapter_prompt）是旧版单次 LLM 调用的实现，
+# 现在主路径走 literary_agent.overwrite.run_overwrite (classify→tavern→
+# rewrite→review 回路)，但保留它们作为：
+#   1) 无 langgraph / mock_llm 环境下的极简回退；
+#   2) 独立单元测试可直接调用；
+#   3) 未来若要在 /api/overwrite 上加"快通道"模式，直接复用。
 # ============================================================================
 
 TONE_HINTS: dict[str, str] = {
@@ -529,26 +537,50 @@ def _build_chapter_prompt(req: OverwriteChapterRequest) -> tuple[str, str]:
 
 @app.post("/api/overwrite/chapter", response_model=OverwriteChapterResponse)
 def overwrite_chapter(req: OverwriteChapterRequest) -> OverwriteChapterResponse:
-    """全书顺序改写：一次一章。无 API key 或 LLM 失败时回退到 stub。"""
+    """全书顺序改写：一次一章。同样走 classify → 改世界书 → 改写 → review 回路。"""
     settings = load_settings()
-    if not settings.api_key:
-        return _chapter_stub(req)
+    use_demo = not settings.api_key
 
-    from literary_agent.llm import build_llm, call_json
+    if use_demo:
+        from langgraph.checkpoint.memory import MemorySaver
 
-    system, user = _build_chapter_prompt(req)
-    try:
-        llm = build_llm(settings, temperature=0.65)
-        raw = call_json(llm, system, user, OverwriteChapterResultSchema, max_attempts=2)
-    except Exception:  # noqa: BLE001
-        return _chapter_stub(req)
+        llm = MockLLM(review_mode="pass")
+        checkpointer = MemorySaver()
+    else:
+        try:
+            from literary_agent.llm import build_llm
 
+            llm = build_llm(settings)
+            checkpointer = _make_checkpointer()
+        except Exception:  # noqa: BLE001
+            from langgraph.checkpoint.memory import MemorySaver
+
+            llm = MockLLM(review_mode="pass")
+            checkpointer = MemorySaver()
+            use_demo = True
+
+    final = run_overwrite_chapter(req.model_dump(), settings=settings, llm=llm, checkpointer=checkpointer)
+    result = final.get("result") or {}
     return OverwriteChapterResponse(
-        title=raw.title or req.target.ch_title or "",
-        narrative=raw.narrative or "",
-        summary=raw.summary or "",
-        demo=False,
+        title=result.get("标题") or req.target.ch_title or "",
+        narrative=result.get("正文", ""),
+        summary=result.get("摘要", ""),
+        demo=use_demo,
     )
+
+
+# 主路径走 literary_agent.overwrite.run_overwrite；
+# 下方四个下划线函数保留作为极简回退与单测入口（详见文件顶部注释），
+# 用 __all__ 明确导出，Pylance / mypy 视其为公共 API，不再报 "未存取"。
+__all__ = [
+    "app",
+    "overwrite",
+    "overwrite_chapter",
+    "_overwrite_stub",
+    "_build_overwrite_prompt",
+    "_chapter_stub",
+    "_build_chapter_prompt",
+]
 
 
 if __name__ == "__main__":
