@@ -1,17 +1,34 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
+from sqlmodel import Session, select
 
+from backend.db import Book, get_session, init_db
+from backend.library import (
+    BookSaveRequest,
+    BranchSaveRequest,
+    InscriptionSaveRequest,
+    delete_branch,
+    delete_book,
+    delete_inscription,
+    list_branches,
+    list_inscriptions,
+    upsert_book,
+    upsert_branch,
+    upsert_inscription,
+)
+from literary_agent.chapters import split_chapters
 from literary_agent.config import load_settings
 from literary_agent.graph import run_pipeline
 from literary_agent.mock_llm import MockLLM
 from literary_agent.overwrite import run_overwrite, run_overwrite_chapter
-from literary_agent.storage import sanitize_name
+from literary_agent.storage import read_text, sanitize_name
 
 ALLOWED_SUFFIXES = (".txt", ".md")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -27,11 +44,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 启动即建库建表；MySQL 未就绪或密码未配置时仅告警，不阻断既有接口。
+try:
+    init_db(load_settings())
+except Exception as exc:  # noqa: BLE001
+    print(f"[警告] 数据库初始化失败（MySQL 未就绪或密码未配置）：{exc}", file=sys.stderr)
+
 
 class ImportResponse(BaseModel):
     work_id: str
     filename: str
     saved_path: str
+    chapters: list = Field(default_factory=list)
 
 
 class GenerateRequest(BaseModel):
@@ -75,7 +99,8 @@ def health() -> dict:
 
 
 @app.post("/api/import", response_model=ImportResponse)
-async def import_txt(file: UploadFile = File(...)) -> ImportResponse:
+async def import_txt(file: UploadFile = File(...), user_id: str = "guest",
+                     session: Session = Depends(get_session)) -> ImportResponse:
     """导入 txt（或 md）文件：存入 inputs/，返回后续生成用的 filename。"""
     original = file.filename or "未命名.txt"
     suffix = Path(original).suffix.lower()
@@ -94,7 +119,16 @@ async def import_txt(file: UploadFile = File(...)) -> ImportResponse:
     dest = settings.inputs_dir / f"{work_id}{suffix}"
     dest.write_bytes(content)
 
-    return ImportResponse(work_id=work_id, filename=dest.name, saved_path=str(dest))
+    # 按「第X章」拆章并入库（失败不影响文件保存）
+    chapters = []
+    try:
+        text = read_text(dest)
+        chapters = split_chapters(text)
+        upsert_book(session, user_id, BookSaveRequest(id=work_id, title=work_id, author="", chapters=chapters))
+    except Exception:  # noqa: BLE001
+        pass
+
+    return ImportResponse(work_id=work_id, filename=dest.name, saved_path=str(dest), chapters=chapters)
 
 
 @app.post("/api/generate", response_model=GenerateResponse)
@@ -567,6 +601,100 @@ def overwrite_chapter(req: OverwriteChapterRequest) -> OverwriteChapterResponse:
         summary=result.get("摘要", ""),
         demo=use_demo,
     )
+
+
+# ============================================================================
+# §ORM 持久化：结构化原文 + 改写分支 + 删除分支
+# ============================================================================
+
+
+@app.put("/api/books/{book_id}")
+def save_book(book_id: str, req: BookSaveRequest, user_id: str = "guest",
+              session: Session = Depends(get_session)) -> dict:
+    req.id = book_id
+    book = upsert_book(session, user_id, req)
+    chapters = book.chapters or []
+    paragraph_count = sum(len(ch.paragraphs or []) for ch in chapters)
+    return {"book_id": book.id, "chapters": len(chapters), "paragraphs": paragraph_count}
+
+
+@app.get("/api/books/{book_id}")
+def read_book(book_id: str, user_id: str = "guest", session: Session = Depends(get_session)) -> dict:
+    book = session.exec(select(Book).where(Book.id == book_id, Book.user_id == user_id)).first()
+    if book is None:
+        raise HTTPException(status_code=404, detail="作品不存在")
+    chapters = []
+    for ch in sorted(book.chapters, key=lambda c: c.idx):
+        paras = [p.text for p in sorted(ch.paragraphs, key=lambda p: p.idx)]
+        chapters.append({"idx": ch.idx, "title": ch.title, "paras": paras})
+    return {"book_id": book.id, "title": book.title, "author": book.author, "sub": book.sub,
+            "chapters": chapters}
+
+
+@app.put("/api/books/{book_id}/branches/{branch_id}")
+def save_branch(book_id: str, branch_id: str, req: BranchSaveRequest, user_id: str = "guest",
+                session: Session = Depends(get_session)) -> dict:
+    req.id = branch_id
+    branch = upsert_branch(session, user_id, book_id, req)
+    if branch is None:
+        raise HTTPException(status_code=404, detail="作品不存在，请先保存原文")
+    chapter_count = len(branch.chapters or [])
+    return {"branch_id": branch.id, "book_id": book_id, "chapter_count": chapter_count}
+
+
+@app.delete("/api/books/{book_id}/branches/{branch_id}")
+def remove_branch(book_id: str, branch_id: str, user_id: str = "guest",
+                  session: Session = Depends(get_session)) -> dict:
+    deleted_id, parent_id, reparented = delete_branch(session, user_id, book_id, branch_id)
+    if deleted_id is None:
+        raise HTTPException(status_code=404, detail="分支不存在或不属于该作品")
+    return {"deleted": deleted_id, "reparented": reparented, "parent_id": parent_id}
+
+
+@app.get("/api/books/{book_id}/branches")
+def read_branches(book_id: str, user_id: str = "guest", session: Session = Depends(get_session)) -> dict:
+    branches = list_branches(session, user_id, book_id)
+    return {"branches": [
+        {"id": b.id, "no": b.no, "parent_id": b.parent_id, "title": b.title, "status": b.status}
+        for b in branches
+    ]}
+
+
+@app.delete("/api/books/{book_id}")
+def remove_book(book_id: str, user_id: str = "guest", session: Session = Depends(get_session)) -> dict:
+    deleted_id = delete_book(session, user_id, book_id)
+    if deleted_id is None:
+        raise HTTPException(status_code=404, detail="作品不存在")
+    return {"deleted": deleted_id}
+
+
+@app.put("/api/books/{book_id}/inscriptions/{ins_id}")
+def save_inscription(book_id: str, ins_id: str, req: InscriptionSaveRequest, user_id: str = "guest",
+                     session: Session = Depends(get_session)) -> dict:
+    req.id = ins_id
+    ins = upsert_inscription(session, user_id, book_id, req)
+    if ins is None:
+        raise HTTPException(status_code=404, detail="作品不存在")
+    return {"inscription_id": ins.id, "book_id": book_id}
+
+
+@app.delete("/api/books/{book_id}/inscriptions/{ins_id}")
+def remove_inscription(book_id: str, ins_id: str, user_id: str = "guest",
+                       session: Session = Depends(get_session)) -> dict:
+    deleted_id = delete_inscription(session, user_id, book_id, ins_id)
+    if deleted_id is None:
+        raise HTTPException(status_code=404, detail="铭文不存在或不属于该作品")
+    return {"deleted": deleted_id}
+
+
+@app.get("/api/books/{book_id}/inscriptions")
+def read_inscriptions(book_id: str, user_id: str = "guest", session: Session = Depends(get_session)) -> dict:
+    inscriptions = list_inscriptions(session, user_id, book_id)
+    return {"inscriptions": [
+        {"id": i.id, "kind": i.kind, "branch_id": i.branch_id, "ch": i.ch, "para": i.para,
+         "s": i.s, "e": i.e, "quote": i.quote, "body": i.body, "at": i.at}
+        for i in inscriptions
+    ]}
 
 
 # 主路径走 literary_agent.overwrite.run_overwrite；

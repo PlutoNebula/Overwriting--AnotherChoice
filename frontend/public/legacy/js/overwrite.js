@@ -41,6 +41,61 @@
     return 'http://127.0.0.1:8000';
   })();
 
+  /* 后端持久化副本：fire-and-forget。本地 localStorage 是主态，失败仅提示不回滚。 */
+  OW.Api = {
+    base: API,
+    userId: function () {
+      var st = (OW.Store && OW.Store.get && OW.Store.get()) || {};
+      return st.reader || 'guest';
+    },
+    saveBook: function (book) {
+      return fetch(API + '/api/books/' + encodeURIComponent(book.id) +
+                   '?user_id=' + encodeURIComponent(OW.Api.userId()), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(book)
+      }).catch(function (err) { OW.toast('原文同步失败：' + err.message, 'warn'); });
+    },
+    saveBranch: function (bookId, branch) {
+      return fetch(API + '/api/books/' + encodeURIComponent(bookId) +
+                   '/branches/' + encodeURIComponent(branch.id) +
+                   '?user_id=' + encodeURIComponent(OW.Api.userId()), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(branch)
+      }).catch(function (err) { OW.toast('分支同步失败：' + err.message, 'warn'); });
+    },
+    deleteBranch: function (bookId, branchId) {
+      return fetch(API + '/api/books/' + encodeURIComponent(bookId) +
+                   '/branches/' + encodeURIComponent(branchId) +
+                   '?user_id=' + encodeURIComponent(OW.Api.userId()), { method: 'DELETE' })
+        .catch(function (err) { OW.toast('分支删除同步失败：' + err.message, 'warn'); });
+    },
+    importBook: function (file) {
+      var fd = new FormData();
+      fd.append('file', file);
+      return fetch(API + '/api/import?user_id=' + encodeURIComponent(OW.Api.userId()), { method: 'POST', body: fd })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            if (!res.ok) throw new Error(data.detail || ('导入失败（' + res.status + '）'));
+            return data;
+          });
+        });
+    },
+    saveInscription: function (bookId, ins) {
+      return fetch(API + '/api/books/' + encodeURIComponent(bookId) +
+                   '/inscriptions/' + encodeURIComponent(ins.id) +
+                   '?user_id=' + encodeURIComponent(OW.Api.userId()), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ins)
+      }).catch(function (err) { OW.toast('铭文同步失败：' + err.message, 'warn'); });
+    },
+    deleteInscription: function (bookId, insId) {
+      return fetch(API + '/api/books/' + encodeURIComponent(bookId) +
+                   '/inscriptions/' + encodeURIComponent(insId) +
+                   '?user_id=' + encodeURIComponent(OW.Api.userId()), { method: 'DELETE' })
+        .catch(function (err) { OW.toast('铭文删除同步失败：' + err.message, 'warn'); });
+    }
+  };
+
   var Ow = {
     el: null,
     bookId: null,
@@ -49,6 +104,7 @@
     stage: 'origin',    // origin | intent | result | tree
     form: null,         // { prompt, tones:[], strength, constraints }
     result: null,       // 后端或 stub 返回的整段
+    editBranchId: null, // 当前结果页正在编辑的已保存候选 id；无则 null（全新推演）
     running: false,
 
     mount: function (root) {
@@ -152,6 +208,7 @@
         nextDirections: br.nextDirections, strength: (br.form || {}).strength,
         demo: !!br.demo
       };
+      this.editBranchId = draftId;
       this.stage = 'result';
       this._go();
     },
@@ -159,6 +216,7 @@
     _resetForm: function () {
       this.form = { prompt: '', tones: [], strength: 'medium', constraints: '' };
       this.result = null;
+      this.editBranchId = null;
     },
 
     _go: function () {
@@ -575,9 +633,19 @@
       D.getElementById('owResDrop').addEventListener('click', function () {
         OW.confirm({
           title: '放弃这条推演？',
-          body: '这条分支不会被保留，你会回到当前所在路线。原文和已有分支不受影响。',
+          body: self.editBranchId
+            ? '这条候选会被删除，你会回到当前所在路线。原文不受影响。'
+            : '这条分支不会被保留，你会回到当前所在路线。原文和已有分支不受影响。',
           ok: '确认放弃', danger: true,
           onOk: function () {
+            if (self.editBranchId) {
+              var b = OW.Store.book(self.bookId);
+              if (b) {
+                OW.OwStore.removeBranch(b, self.editBranchId);
+                if (OW.Api && OW.Api.deleteBranch) OW.Api.deleteBranch(b.id, self.editBranchId);
+              }
+            }
+            self.editBranchId = null;
             self.result = null;
             OW.App.openBook(self.bookId);
           }
@@ -681,6 +749,7 @@
           badge +
           '<span class="tt">' + SVG.esc(br.title) + '</span>' +
           '<span class="meta">' + meta + '</span>' +
+          '<span class="node-del" data-del="' + br.id + '" role="button" title="删除分支">×</span>' +
           '<span class="go">GO →</span></div>' +
           (br.children.length
             ? '<ul>' + br.children.map(nodeHtml).join('') + '</ul>'
@@ -700,7 +769,8 @@
             return '<div class="draft" data-draft="' + d.id + '">' +
               '<span class="nm">' + SVG.esc(d.title) + '</span>' +
               '<span class="qu">' + SVG.esc((d.narrative || '').slice(0, 76)) + '…</span>' +
-              '<span class="meta">' + self._agoStr(d.at) + '</span></div>';
+              '<span class="meta">' + self._agoStr(d.at) + '</span>' +
+              '<span class="draft-del" data-deldraft="' + d.id + '" role="button" title="删除候选">×</span></div>';
           }).join('') + '</div>'
         : '';
 
@@ -743,14 +813,27 @@
                        : '已回到原作路线。');
         });
       });
+      D.querySelectorAll('#owMain .node-del[data-del]').forEach(function (d) {
+        d.addEventListener('click', function (e) {
+          e.stopPropagation();
+          self.deleteBranch(d.getAttribute('data-del'));
+        });
+      });
       D.querySelectorAll('#owMain .draft[data-draft]').forEach(function (n) {
         n.addEventListener('click', function () {
           var id = n.getAttribute('data-draft');
           var br = OW.OwStore.byId(b, id);
           if (!br) return;
+          self.editBranchId = id;
           self.result = br.result;
           self.stage = 'result';
           self.render();
+        });
+      });
+      D.querySelectorAll('#owMain .draft-del[data-deldraft]').forEach(function (d) {
+        d.addEventListener('click', function (e) {
+          e.stopPropagation();
+          self.deleteBranch(d.getAttribute('data-deldraft'));
         });
       });
     },
@@ -790,7 +873,35 @@
       if (opts.status === 'accepted') {
         OW.OwStore.setCurrent(b, branch.id);
       }
+      this._persistBranch(b, branch.id);
       return branch;
+    },
+
+    _persistBranch: function (b, branchId) {
+      if (!OW.Api || !OW.Api.saveBranch) return;
+      var br = OW.OwStore.byId(b, branchId);
+      if (!br) return;
+      OW.Api.saveBook(b);
+      OW.Api.saveBranch(b.id, br);
+    },
+
+    deleteBranch: function (branchId) {
+      var b = OW.Store.book(this.bookId);
+      if (!b) return;
+      var br = OW.OwStore && OW.OwStore.byId(b, branchId);
+      if (!br) return;
+      var self = this;
+      OW.confirm({
+        title: '删除分支 ' + this._pad(br.no) + '？',
+        body: '这条分支会被移除，其子分支将接到它的父分支上；原文不受影响。',
+        ok: '确认删除', danger: true,
+        onOk: function () {
+          OW.OwStore.removeBranch(b, branchId);
+          if (OW.Api && OW.Api.deleteBranch) OW.Api.deleteBranch(b.id, branchId);
+          self.render();
+          OW.toast('分支已删除。');
+        }
+      });
     },
 
     /* ==================================================================
@@ -836,6 +947,7 @@
                 demo: !!res.demo
               });
               notifyReader();
+              self._persistBranch(b, branchId);
             }).catch(function () {
               /* 单章失败：写入 stub 版本，继续下一章，不阻断整本 */
               var stub = self._stubChapter(b, br, idx);
@@ -844,12 +956,14 @@
                 title: stub.title, demo: true
               });
               notifyReader();
+              self._persistBranch(b, branchId);
             });
           });
         })(i);
       }
       return chain.then(function () {
         OW.OwStore.setPending(b, branchId, false);
+        self._persistBranch(b, branchId);
         notifyReader();
         OW.toast('分支「' + (br.title || '未命名') + '」已改写至末章。');
       });
@@ -1183,6 +1297,17 @@
       b.branches.push(br);
       OW.Store.commit();
       return br;
+    },
+    removeBranch: function (b, id) {
+      this.ensure(b);
+      var target = this.byId(b, id);
+      if (!target) return null;
+      var children = (b.branches || []).filter(function (br) { return br.parentId === id; });
+      children.forEach(function (c) { c.parentId = target.parentId; });   // reparent：子接祖父
+      if (b.currentBranch === id) b.currentBranch = target.parentId || null;
+      b.branches = b.branches.filter(function (br) { return br.id !== id; });
+      OW.Store.commit();
+      return { removed: target, reparented: children };
     },
     setChapter: function (b, branchId, chIdx, chapter) {
       var br = this.byId(b, branchId);

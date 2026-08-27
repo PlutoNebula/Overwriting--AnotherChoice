@@ -235,6 +235,11 @@
 }
 .ins:hover{background:color-mix(in srgb,var(--dusk-gold) 20%,transparent)}
 .ins.is-focus{box-shadow:0 0 0 2px rgba(199,164,90,.5);border-radius:3px}
+.ins.is-just{animation:insInk 900ms var(--ease-out) both}
+@keyframes insInk{
+  0%{background:rgba(199,164,90,.55);color:#1a1206;box-shadow:0 0 0 3px rgba(199,164,90,.55);border-radius:3px}
+  100%{box-shadow:0 0 0 0 rgba(199,164,90,0)}
+}
 
 /* 选中即可批注的浮动按钮 */
 .sel-pop{

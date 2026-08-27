@@ -386,6 +386,7 @@
             badge + demoTag +
             '<span class="br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
             '<span class="br-meta">' + meta + '</span>' +
+            '<span class="br-del" data-brdel="' + br.id + '" role="button" title="删除分支">×</span>' +
           '</button>' +
           (br.children && br.children.length
             ? '<ul>' + br.children.map(nodeHtml).join('') + '</ul>'
@@ -403,6 +404,7 @@
             return '<button class="br-draft" data-draft="' + d.id + '">' +
               '<span class="nm">' + SVG.esc(d.title || '未命名候选') + '</span>' +
               '<span class="qu">' + SVG.esc((d.narrative || '').slice(0, 60)) + '…</span>' +
+              '<span class="br-draft-del" data-brdraftdel="' + d.id + '" role="button" title="删除候选">×</span>' +
             '</button>';
           }).join('') + '</div>'
         : '';
@@ -431,12 +433,43 @@
       return br ? br.no : '?';
     },
 
+    delBranch: function (branchId) {
+      var b = OW.Store.book(this.bookId);
+      if (!b) return;
+      var br = OW.OwStore && OW.OwStore.byId(b, branchId);
+      if (!br) return;
+      var self = this;
+      OW.confirm({
+        title: '删除分支 ' + this._pad2(br.no) + '？',
+        body: '这条分支会被移除，其子分支将接到它的父分支上；原文不受影响。',
+        ok: '确认删除', danger: true,
+        onOk: function () {
+          OW.OwStore.removeBranch(b, branchId);
+          if (OW.Api && OW.Api.deleteBranch) OW.Api.deleteBranch(b.id, branchId);
+          self.render();
+          OW.toast('分支已删除。');
+        }
+      });
+    },
+
     _wireBranchPane: function (b) {
       var self = this;
       var body = D.getElementById('rdSideBody');
       if (!body) return;
 
       body.addEventListener('click', function (e) {
+        var del = e.target.closest('.br-del[data-brdel]');
+        if (del) {
+          e.stopPropagation();
+          self.delBranch(del.getAttribute('data-brdel'));
+          return;
+        }
+        var draftDel = e.target.closest('.br-draft-del[data-brdraftdel]');
+        if (draftDel) {
+          e.stopPropagation();
+          self.delBranch(draftDel.getAttribute('data-brdraftdel'));
+          return;
+        }
         var node = e.target.closest('.br-node[data-br]');
         if (node) {
           var id = node.getAttribute('data-br') || null;
@@ -529,11 +562,12 @@
     },
 
     /** 分支正文替换整章原文；含头栏 + 「回到原作」 */
-    _branchInlineHtml: function (info) {
+    _branchInlineHtml: function (info, b, idx) {
+      var self = this;
       var br = info.br;
-      var body = String(info.narrative || '').split(/\n{1,}/).map(function (t) {
+      var body = String(info.narrative || '').split(/\n{1,}/).map(function (t, pi) {
         t = t.trim();
-        return t ? '<p>' + SVG.esc(t) + '</p>' : '';
+        return t ? '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t, br.id) + '</p>' : '';
       }).join('');
       if (!body && info.pending) {
         body =
@@ -600,7 +634,7 @@
          若无本章正文但当前分支仍在 pending，也以占位块替换。 */
       var info = self._activeBranchForChapter(b, idx);
       var proseHtml = info
-        ? self._branchInlineHtml(info)
+        ? self._branchInlineHtml(info, b, idx)
         : ch.paras.map(function (t, pi) {
             return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
           }).join('');
@@ -645,9 +679,10 @@
     },
 
     /** 把某段的铭文标记套进正文。同段多条按起点排序，互不重叠。 */
-    markup: function (b, ch, para, text) {
+    markup: function (b, ch, para, text, branchId) {
+      var self = this;
       var list = b.inscriptions.filter(function (i) {
-        return i.ch === ch && i.para === para;
+        return i.ch === ch && i.para === para && (i.branchId || null) === (branchId || null);
       }).sort(function (a, c) { return a.s - c.s; });
 
       if (!list.length) return SVG.esc(text);
@@ -657,7 +692,8 @@
         if (i.s < cur) return;                     // 防御：重叠的直接跳过，不做重叠批注
         out += SVG.esc(text.slice(cur, i.s));
         var k = OW.kindOf(i.kind);
-        out += '<span class="ins ins-' + i.kind + '" data-id="' + i.id +
+        out += '<span class="ins ins-' + i.kind +
+               (i.id === self.lastWrittenIns ? ' is-just' : '') + '" data-id="' + i.id +
                '" data-ico="' + k.ico + '" tabindex="0" role="button" ' +
                'aria-label="' + k.name + '铭文：' + SVG.esc(i.body.slice(0, 30)) + '" ' +
                'title="' + k.name + '（' + k.gloss + '）">' +
@@ -797,6 +833,25 @@
       }
 
       var b = OW.Store.book(this.bookId);
+
+      // 分支正文：也允许铭文批注，铭文带 branchId 锚定到当前分支
+      var brBlock = pa.closest('.rd-branch-inline');
+      if (brBlock) {
+        var brId = brBlock.getAttribute('data-br') || null;
+        var brPara = parseInt(pa.getAttribute('data-p'), 10);
+        var brFull = pa.textContent || '';
+        var brS = offsetInP(pa, range.startContainer, range.startOffset);
+        if (brS < 0) return this.hidePop();
+        var brProbe = brFull.indexOf(txt, Math.max(0, brS - 4));
+        if (brProbe > -1) brS = brProbe;
+        else { brProbe = brFull.indexOf(txt); if (brProbe > -1) brS = brProbe; }
+        var brE = brS + txt.length;
+        if (brFull.slice(brS, brE) !== txt) return this.hidePop();
+        this.sel = { ch: b.page || 0, para: brPara, s: brS, e: brE, quote: txt, branchId: brId };
+        this.showPop(range);
+        return;
+      }
+
       var ch = b.page || 0, para = parseInt(pa.getAttribute('data-p'), 10);
       var full = (b.chapters[ch] || {}).paras[para] || '';
       var s = offsetInP(pa, range.startContainer, range.startOffset);
@@ -867,9 +922,18 @@
     renderAside: function (b) {
       var aside = D.getElementById('rdAside');
       if (!this.asideOn) { aside.innerHTML = ''; return; }
-      var self = this, pr = OW.Store.progress(b.id);
+      var self = this;
 
-      var list = b.inscriptions.slice().sort(function (a, c) { return c.at - a.at; });
+      // 按当前分支隔离铭文：原作 branchId=null，各分支只显示自己的
+      var curBranch = (OW.OwStore && OW.OwStore.currentLine(b).branchId) || null;
+      var all = b.inscriptions.filter(function (i) { return (i.branchId || null) === curBranch; });
+      var litMap = {};
+      OW.KINDS.forEach(function (k) {
+        litMap[k.id] = all.filter(function (i) { return i.kind === k.id; }).length;
+      });
+      var litCount = OW.KINDS.filter(function (k) { return litMap[k.id] > 0; }).length;
+
+      var list = all.slice().sort(function (a, c) { return c.at - a.at; });
       if (this.filter !== 'all') {
         list = list.filter(function (i) { return i.kind === self.filter; });
       }
@@ -887,7 +951,7 @@
             '<button class="btn btn--icon" id="rdAsideX" aria-label="收起铭文面板">' +
               SVG.icon('close', 16) + '</button>' +
           '</div>' +
-          '<div class="sub">共 ' + b.inscriptions.length + ' 枚 · 四类已点亮 ' + pr.lit +
+          '<div class="sub">共 ' + all.length + ' 枚 · 四类已点亮 ' + litCount +
             '/4 · 在正文中选一句话即可写下新的一枚</div>' +
         '</div>' +
         '<div class="ins-filter" id="rdFilter">' +
@@ -896,7 +960,7 @@
             return '<button class="chip" data-f="' + k.id + '" aria-pressed="' +
               (self.filter === k.id) + '" title="' + k.gloss + '">' +
               '<i class="sw" style="background:' + k.color + '"></i>' + k.name +
-              ' ' + (pr.kinds[k.id] || 0) + '</button>';
+              ' ' + (litMap[k.id] || 0) + '</button>';
           }).join('') +
         '</div>' +
         '<div class="ins-gallery' + (selected ? ' has-feature' : '') + '" id="rdInsList">' +
@@ -918,7 +982,7 @@
               '<div class="ins-deck-hint">悬停展开 · 点击抽取</div>' +
             '</section>' :
             '<div class="empty">' + SVG.icon('ins', 40) + '<div>' +
-              (b.inscriptions.length ? '这一类还没有铭文。' : OW.COPY.noIns) +
+              (all.length ? '这一类还没有铭文。' : OW.COPY.noIns) +
             '</div></div>') +
         '</div>' +
         '<div class="ins-editor" id="rdEditor"></div>';
@@ -1067,7 +1131,7 @@
         this.editing = {
           mode: 'new', kind: data.kind,
           ch: this.sel.ch, para: this.sel.para, s: this.sel.s, e: this.sel.e,
-          quote: this.sel.quote, body: ''
+          quote: this.sel.quote, body: '', branchId: this.sel.branchId || null
         };
       } else {
         this.editing = {
@@ -1143,16 +1207,22 @@
 
       if (E.mode === 'edit') {
         OW.Store.updateIns(b.id, E.id, { kind: E.kind, body: E.body });
+        var edIns = find(b, E.id);
+        if (edIns && OW.Api && OW.Api.saveInscription) OW.Api.saveInscription(b.id, edIns);
         this.closeEditor(); this.render();
         return OW.toast('铭文已更新。');
       }
 
-      OW.Store.addIns(b.id, {
-        ch: E.ch, para: E.para, s: E.s, e: E.e, quote: E.quote, kind: E.kind, body: E.body
+      var newIns = OW.Store.addIns(b.id, {
+        ch: E.ch, para: E.para, s: E.s, e: E.e, quote: E.quote, kind: E.kind, body: E.body,
+        branchId: E.branchId || null
       });
+      if (OW.Api && OW.Api.saveInscription) OW.Api.saveInscription(b.id, newIns);
+      this.lastWrittenIns = newIns.id;
       var k = OW.kindOf(E.kind);
       this.closeEditor();
       this.render();
+      this.lastWrittenIns = null;
 
       /* 第一枚铭文：每本书首次保存触发一次约 2 秒轻量仪式（§5.5），
          刷新后不重复 —— 靠 firstInsDone 持久化 */
@@ -1175,6 +1245,7 @@
         ok: '确认删除', danger: true,
         onOk: function () {
           OW.Store.removeIns(b.id, id);
+          if (OW.Api && OW.Api.deleteInscription) OW.Api.deleteInscription(b.id, id);
           if (self.selectedIns === id) self.selectedIns = null;
           self.render();
           OW.toast('铭文已删除。');

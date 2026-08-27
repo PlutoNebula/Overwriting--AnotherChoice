@@ -111,35 +111,22 @@
       if (file.size > 4 * 1024 * 1024) {
         return OW.toast('文件过大（超过 4MB），初赛版暂不支持。', 'warn');
       }
-      var fr = new w.FileReader();
-      fr.onerror = function () { OW.toast(OW.COPY.txtBad, 'warn'); };
-      fr.onload = function () {
-        var raw = String(fr.result || '').replace(/\r\n/g, '\n').trim();
-        if (!raw) return OW.toast(OW.COPY.txtBad, 'warn');
-
-        // 简单分章：按空行成段，每 ~14 段切一章，保证目录不为空
-        var paras = raw.split(/\n{1,}/).map(function (s) { return s.trim(); })
-                       .filter(function (s) { return s.length > 0; });
-        if (!paras.length) return OW.toast(OW.COPY.txtBad, 'warn');
-
-        var chapters = [], per = 14;
-        for (var i = 0; i < paras.length; i += per) {
-          chapters.push({
-            title: '第 ' + (chapters.length + 1) + ' 节',
-            paras: paras.slice(i, i + per)
-          });
-        }
-        var name = file.name.replace(/\.txt$/i, '').slice(0, 24) || '无名秘典';
+      if (!OW.Api || !OW.Api.importBook) return OW.toast('未连接到后端，无法导入。', 'warn');
+      OW.Api.importBook(file).then(function (data) {
+        var chapters = data.chapters || [];
+        var name = (data.filename || file.name).replace(/\.txt$/i, '').slice(0, 24) || '无名秘典';
         OW.Store.addBook({
-          id: 'u' + Date.now(), sample: false, locked: false,
+          id: data.work_id || ('u' + Date.now()),
+          sample: false, locked: false,
           title: name, author: '导入·佚名', sub: '由你导入',
           hue: chapters.length % 3, chapters: chapters, page: 0,
           inscriptions: [], bookmarks: [], finale: '', signed: null, firstInsDone: false
         });
         self.render();
         OW.toast('《' + name + '》已入库，共 ' + chapters.length + ' 节。');
-      };
-      fr.readAsText(file, 'utf-8');
+      }).catch(function (err) {
+        OW.toast(err.message || OW.COPY.txtBad, 'warn');
+      });
     },
 
     /* ---------- 渲染 ---------- */

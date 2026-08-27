@@ -36,6 +36,18 @@ class Settings:
     works_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "works")
     inputs_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "inputs")
 
+    # 数据库（MySQL）
+    db_host: str = field(default_factory=lambda: os.getenv("MYSQL_HOST", "127.0.0.1"))
+    db_port: int = field(default_factory=lambda: int(os.getenv("MYSQL_PORT", "3306")))
+    db_user: str = field(default_factory=lambda: os.getenv("MYSQL_USER", "root"))
+    db_password: str = field(default_factory=lambda: os.getenv("MYSQL_PASSWORD", ""))
+    db_name: str = field(default_factory=lambda: os.getenv("MYSQL_DATABASE", "overwriting"))
+
+    @property
+    def database_url(self) -> str:
+        return (f"mysql+pymysql://{self.db_user}:{self.db_password}"
+                f"@{self.db_host}:{self.db_port}/{self.db_name}?charset=utf8mb4")
+
 
 def load_settings() -> Settings:
     return Settings()

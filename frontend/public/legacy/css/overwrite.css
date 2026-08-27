@@ -738,6 +738,28 @@
   font-size:var(--fs-2xs);line-height:1.6;color:var(--tx-mid);
   display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
+
+/* 删除按钮（分支树 / 候选） */
+.ow-tree .node .node-del,
+.br-node .br-del{
+  flex:none;margin-left:auto;cursor:pointer;color:var(--tx-faint);
+  font-size:var(--fs-sm);line-height:1;padding:2px 6px;border-radius:var(--r-sm);
+  transition:color var(--t-fast) var(--ease),background-color var(--t-fast) var(--ease);
+}
+.ow-drafts .draft,
+.side-branch .br-draft{position:relative}
+.ow-drafts .draft .draft-del,
+.side-branch .br-draft .br-draft-del{
+  position:absolute;top:8px;right:8px;cursor:pointer;color:var(--tx-faint);
+  font-size:var(--fs-sm);line-height:1;padding:2px 6px;border-radius:var(--r-sm);
+  transition:color var(--t-fast) var(--ease),background-color var(--t-fast) var(--ease);
+}
+.ow-tree .node .node-del:hover,
+.ow-drafts .draft .draft-del:hover,
+.br-node .br-del:hover,
+.side-branch .br-draft .br-draft-del:hover{
+  color:#E8A0A0;background:rgba(232,120,120,.12);
+}
 .side-branch .br-actions{
   display:flex;flex-wrap:wrap;gap:var(--s2);
   padding-top:var(--s3);border-top:1px solid var(--ln-hair);

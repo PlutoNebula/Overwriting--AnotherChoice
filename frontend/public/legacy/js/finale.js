@@ -63,11 +63,16 @@
         OW.App.openBook(self.bookId);
       });
       var ta = D.getElementById('fnText');
+      var saveTimer = null;
       ta.addEventListener('input', function () {
         var b = OW.Store.book(self.bookId); if (!b) return;
         b.finale = ta.value;
         OW.Store.commit(true);              // 静默存，不触发整页重绘打断输入
         self.paint();
+        if (OW.Api && OW.Api.saveBook) {
+          w.clearTimeout(saveTimer);
+          saveTimer = w.setTimeout(function () { OW.Api.saveBook(b); }, 600);
+        }
       });
       D.getElementById('fnPub').addEventListener('click', function () { self.publish(); });
     },
