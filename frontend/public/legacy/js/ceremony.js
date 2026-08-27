@@ -55,7 +55,24 @@
       this.penName = penName || OW.Store.get().reader || '读者';
 
       // 真实写入署名与版本号（发布按钮由演示者真实点击后才走到这里）
-      if (!b.signed) OW.Store.sign(bookId, this.penName);
+      if (!b.signed) {
+        OW.Store.sign(bookId, this.penName);
+      } else {
+        var signedChanged = false;
+        if (b.signed.reader !== this.penName) {
+          b.signed.reader = this.penName;
+          signedChanged = true;
+        }
+        if ((b.signed.branchId || null) !== (b.finalVersionBranchId || null)) {
+          b.signed.branchId = b.finalVersionBranchId || null;
+          b.signed.edition = b.finalVersionBranchId ? 'ai-rewrite' : 'annotated-original';
+          signedChanged = true;
+        }
+        if (signedChanged) {
+          OW.Store.commit();
+          if (OW.Api && OW.Api.saveBook) OW.Api.saveBook(b);
+        }
+      }
 
       this.paintCover(b);
       this.paintSteps(0);
@@ -85,6 +102,7 @@
           // 身份标用 HTML 渲染，字号才受令牌控制（§14.7）
           '<div class="cover-role">编注</div>' +
           '<div class="cover-ver">' + OW.Store.versionLabel(b) + '</div>' +
+          (b.signed.edition === 'ai-rewrite' ? '<div class="cover-edition">AI 剧情覆写版</div>' : '') +
         '</div>' +
         '<div class="cover-seal">' + SVG.seal(lit) + '</div>';
     },
@@ -213,6 +231,7 @@
                 '</div>' +
                 '<div class="cover-role">编注</div>' +
                 '<div class="cover-ver" style="opacity:1">' + OW.Store.versionLabel(b) + '</div>' +
+                (b.signed.edition === 'ai-rewrite' ? '<div class="cover-edition">AI 剧情覆写版</div>' : '') +
               '</div>' +
               '<div class="cover-seal" style="opacity:1;transform:none">' +
                 SVG.seal(lit) + '</div>' +
@@ -225,6 +244,7 @@
               row('原作者', b.signed.author + ' 著') +
               row('编注者', b.signed.reader + ' 编注') +
               row('版本编号', OW.Store.versionLabel(b)) +
+              row('故事路线', b.signed.edition === 'ai-rewrite' ? 'AI 剧情覆写版' : '原作批注版') +
               row('契名日期', dt) +
               row('铭文总数', b.inscriptions.length + ' 枚') +
               row('完整度', pr.pct + '%') +
@@ -239,13 +259,15 @@
               '<button class="btn btn--ghost" id="opRite">再看契名仪式</button>' +
             '</div>' +
             '<div class="t-low" style="font-size:12px;line-height:1.8">' +
-              '原作不会被替换。你的名字与原作者并列留在封面上，刷新后依然在书库里。' +
+              '原作不会被替换。' + (b.signed.edition === 'ai-rewrite' ?
+                '本路线由 AI 辅助生成，并由你选择和编辑。' : '') +
+              '你的名字与原作者并列留在封面上，刷新后依然在书库里。' +
             '</div>' +
           '</div>' +
         '</div>';
 
       function row(k, v) {
-        return '<div class="rw"><span class="k">' + k + '</span>' +
+        return '<div class="op-row"><span class="k">' + k + '</span>' +
           '<span class="v">' + SVG.esc(v) + '</span></div>';
       }
 

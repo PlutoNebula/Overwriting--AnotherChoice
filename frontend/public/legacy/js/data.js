@@ -64,13 +64,15 @@
         },
         {
           id: 'b-star', sample: true, locked: true,
-          title: LOCKED_1.title, author: LOCKED_1.author, sub: '尚未解封',
+          title: LOCKED_1.title, author: LOCKED_1.author, sub: '初赛版世界观展示',
+          lockedHint: '《星轨残页》是初赛版的世界观展示藏书，目前没有正文，也不需要寻找解锁条件。',
           hue: 1, chapters: [], page: 0, inscriptions: [], bookmarks: [],
           finale: '', signed: null, firstInsDone: false
         },
         {
           id: 'b-door', sample: true, locked: true,
-          title: LOCKED_2.title, author: LOCKED_2.author, sub: '尚未解封',
+          title: LOCKED_2.title, author: LOCKED_2.author, sub: '初赛版世界观展示',
+          lockedHint: '《铜门之后》是初赛版的世界观展示藏书，目前没有正文，也不需要寻找解锁条件。',
           hue: 2, chapters: [], page: 0, inscriptions: [], bookmarks: [],
           finale: '', signed: null, firstInsDone: false
         }

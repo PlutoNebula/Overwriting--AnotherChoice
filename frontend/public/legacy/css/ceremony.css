@@ -13,8 +13,8 @@
 .cm-aura{
   position:absolute;inset:0;pointer-events:none;z-index:0;
   background:
-    radial-gradient(760px 620px at 50% 46%,rgba(36,23,53,.96),transparent 66%),
-    radial-gradient(1200px 700px at 50% 116%,rgba(36,23,53,.6),transparent 62%),
+    radial-gradient(760px 620px at 50% 46%,rgb(var(--surface-purple-rgb)/.96),transparent 66%),
+    radial-gradient(1200px 700px at 50% 116%,rgb(var(--surface-purple-rgb)/.6),transparent 62%),
     radial-gradient(420px 360px at 50% 44%,rgba(199,164,90,.07),transparent 70%);
 }
 .cm-stars{position:absolute;inset:0;z-index:0;pointer-events:none}
@@ -57,7 +57,7 @@
 /* 书脊：左侧深一档，靠渐变不靠图 */
 .cover::before{
   content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:3;pointer-events:none;
-  background:linear-gradient(90deg,rgba(5,7,14,.9),rgba(5,7,14,.18) 62%,transparent);
+  background:linear-gradient(90deg,rgb(var(--surface-deep-rgb)/.9),rgb(var(--surface-deep-rgb)/.18) 62%,transparent);
   border-right:1px solid rgba(199,164,90,.16);
 }
 .cover-art{position:absolute;inset:0;z-index:1}
@@ -152,6 +152,8 @@
 .cm[data-step="4"] .cover-ver,.cm[data-step="5"] .cover-ver,.cm[data-step="done"] .cover-ver{
   opacity:1;transition:opacity var(--t-rite) var(--ease);
 }
+.cover-edition{margin-top:var(--s2);display:inline-flex;align-self:center;padding:3px 9px;border:1px solid rgba(83,167,184,.46);border-radius:999px;color:var(--teal-magic);font-size:var(--fs-2xs);letter-spacing:.12em;background:rgba(83,167,184,.08)}
+.cm .cover-edition{opacity:0}.cm[data-step="4"] .cover-edition,.cm[data-step="5"] .cover-edition,.cm[data-step="done"] .cover-edition{opacity:1;transition:opacity var(--t-rite) var(--ease)}
 
 /* 步骤 5：契印落在封面 */
 .cover-seal{
@@ -223,13 +225,13 @@
 .op-cover{width:300px;flex:none}
 .op-side{width:min(520px,100%);display:flex;flex-direction:column;gap:var(--s6)}
 .op-meta{display:flex;flex-direction:column;gap:var(--s3)}
-.op-meta .rw{
+.op-meta .op-row{
   display:flex;justify-content:space-between;gap:var(--s4);
   padding:var(--s3) 0;border-bottom:1px solid var(--ln-hair);
   font-size:var(--fs-sm);
 }
-.op-meta .rw .k{color:var(--tx-low);letter-spacing:.14em;font-size:var(--fs-xs)}
-.op-meta .rw .v{color:var(--tx-hi);font-family:var(--f-display);letter-spacing:.1em}
+.op-meta .op-row .k{color:var(--tx-low);letter-spacing:.14em;font-size:var(--fs-xs)}
+.op-meta .op-row .v{color:var(--tx-hi);font-family:var(--f-display);letter-spacing:.1em;text-align:right}
 .op-quote{
   padding:var(--s5);border-radius:var(--r-md);border-left:2px solid var(--dusk-gold);
   background:rgba(199,164,90,.06);font-size:var(--fs-sm);line-height:2;color:var(--tx-mid);

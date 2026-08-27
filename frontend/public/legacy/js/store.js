@@ -41,7 +41,7 @@
      §8 文案：给定即用，不要改写
      ------------------------------------------------------------------ */
   OW.COPY = {
-    locked:     '这本秘典尚未解封，先从可阅读的秘典开始。',
+    locked:     '这是初赛版的世界观展示藏书，目前没有正文，也不需要寻找解锁条件。',
     noIns:      '这本书还在等待你的第一枚铭文。',
     noHit:      '秘典中未寻得此语。',
     ttsNo:      '当前浏览器无法唤醒朗读，请使用最新版浏览器。',
@@ -84,6 +84,49 @@
   var subs = [];
   var S = null;
 
+  function normalizeBook(b) {
+    if (!Array.isArray(b.branches)) b.branches = [];
+    if (!('activeBranchId' in b)) b.activeBranchId = b.currentBranch || null;
+    if (!('finalVersionBranchId' in b)) b.finalVersionBranchId = null;
+    b.branches.forEach(function (branch) {
+      var origin = branch.origin || {};
+      var form = branch.form || {};
+      var result = branch.result || {};
+      var originChapter = typeof origin.ch === 'number' ? origin.ch : 0;
+      var chapterResult = branch.chapters && branch.chapters[originChapter];
+      var modeMap = {
+        'end-of-chapter': 'chapter_end',
+        'from-selection': 'selection',
+        'from-inscription': 'inscription'
+      };
+
+      if (branch.chapterIndex == null) branch.chapterIndex = originChapter;
+      if (branch.paragraphIndex == null) branch.paragraphIndex = origin.para || 0;
+      if (!branch.sourceType) branch.sourceType = modeMap[origin.mode] || origin.mode || 'chapter_end';
+      if (!branch.quote) branch.quote = origin.quote || '';
+      if (!branch.intent) branch.intent = form.prompt || '';
+      if (!Array.isArray(branch.tendencies)) branch.tendencies = form.tones || ['角色选择'];
+      if (!branch.intensity) branch.intensity = form.strength || 'medium';
+      if (!branch.mustPreserve) branch.mustPreserve = form.constraints || '';
+      if (!branch.content) {
+        branch.content = branch.narrative || result.narrative ||
+          (chapterResult && chapterResult.narrative) || '';
+      }
+      if (!Array.isArray(branch.keyChanges)) branch.keyChanges = branch.changes || result.changes || [];
+      if (!Array.isArray(branch.characters)) branch.characters = result.characters || [];
+      if (!Array.isArray(branch.nextDirections)) {
+        branch.nextDirections = branch.next_directions || result.nextDirections || [];
+      }
+      if (!branch.difference) branch.difference = result.difference || '';
+      if (!branch.model) branch.model = result.model || '';
+      if (branch.isDemo == null) branch.isDemo = !!(branch.demo || result.demo);
+      if (branch.status === 'draft') branch.status = 'candidate';
+      branch.createdAt = branch.createdAt || branch.at || Date.now();
+      branch.updatedAt = branch.updatedAt || branch.createdAt;
+    });
+    return b;
+  }
+
   function fresh() {
     return {
       firstRun: true,
@@ -93,9 +136,35 @@
       fontSize: 18,
       lineHeight: 2,
       books: OW.DATA.seedBooks(),
-      ai: { key: '', model: 'demo', connected: false },
+      ai: {
+        baseUrl: 'https://api.deepseek.com',
+        key: '',
+        model: 'deepseek-chat',
+        timeout: 45,
+        connected: false,
+        checkedAt: null
+      },
       versionCounter: 0
     };
+  }
+
+  function syncBook(book) {
+    if (book && OW.Api && OW.Api.saveBook) OW.Api.saveBook(book);
+  }
+
+  function syncBranch(book, branch) {
+    if (!book || !branch || !OW.Api || !OW.Api.saveBranch) return;
+    // 分支表依赖书籍外键；先确保书籍存在，再保存分支。
+    Promise.resolve(OW.Api.saveBook(book)).then(function () {
+      return OW.Api.saveBranch(book.id, branch);
+    });
+  }
+
+  function syncInscription(book, inscription) {
+    if (!book || !inscription || !OW.Api || !OW.Api.saveInscription) return;
+    Promise.resolve(OW.Api.saveBook(book)).then(function () {
+      return OW.Api.saveInscription(book.id, inscription);
+    });
   }
 
   OW.Store = {
@@ -107,6 +176,11 @@
       // 老数据补齐字段，避免刷新后白屏
       var f = fresh();
       for (var k in f) if (!(k in S)) S[k] = f[k];
+      S.ai = S.ai || {};
+      for (var ak in f.ai) if (!(ak in S.ai)) S.ai[ak] = f.ai[ak];
+      // v1 只用 "demo" 作为占位模型；v1.2 开始它不是可调用的真实模型名。
+      if (S.ai.model === 'demo') S.ai.model = f.ai.model;
+      S.books.forEach(normalizeBook);
       if (opts.demo) OW.DATA.applyDemo(S);
       this.commit(true);
       return S;
@@ -131,10 +205,13 @@
       for (var i = 0; i < S.books.length; i++) if (S.books[i].id === id) return S.books[i];
       return null;
     },
-    addBook: function (b) { S.books.push(b); this.commit(); return b; },
+    addBook: function (b) {
+      S.books.push(normalizeBook(b)); this.commit(); syncBook(b); return b;
+    },
     removeBook: function (id) {
       S.books = S.books.filter(function (b) { return b.id !== id; });
       this.commit();
+      if (OW.Api && OW.Api.deleteBook) OW.Api.deleteBook(id);
     },
     /** 恢复示例藏书：补回被删掉的示例书，不动任何进度 */
     restoreSamples: function () {
@@ -157,8 +234,88 @@
         b.page = 0;
         b.firstInsDone = false;
         b.bookmarks = [];
+        b.branches = [];
+        b.activeBranchId = null;
+        b.finalVersionBranchId = null;
       });
       this.commit();
+    },
+
+    /* ---------- AI 剧情覆写分支 ---------- */
+    branch: function (bookId, branchId) {
+      var b = this.book(bookId); if (!b || !branchId) return null;
+      normalizeBook(b);
+      for (var i = 0; i < b.branches.length; i++) {
+        if (b.branches[i].id === branchId) return b.branches[i];
+      }
+      return null;
+    },
+    addBranch: function (bookId, branch) {
+      var b = this.book(bookId); if (!b) return null;
+      normalizeBook(b);
+      branch.id = branch.id || ('rw' + Date.now() + Math.floor(Math.random() * 1000));
+      branch.status = branch.status || 'candidate';
+      branch.createdAt = branch.createdAt || Date.now();
+      branch.updatedAt = Date.now();
+      b.branches.push(branch);
+      this.commit();
+      syncBranch(b, branch);
+      return branch;
+    },
+    updateBranch: function (bookId, branchId, patch) {
+      var branch = this.branch(bookId, branchId); if (!branch) return null;
+      for (var k in patch) branch[k] = patch[k];
+      branch.updatedAt = Date.now();
+      this.commit();
+      syncBranch(this.book(bookId), branch);
+      return branch;
+    },
+    acceptBranch: function (bookId, branchId) {
+      var b = this.book(bookId), branch = this.branch(bookId, branchId);
+      if (!b || !branch) return null;
+      branch.status = 'accepted';
+      branch.updatedAt = Date.now();
+      b.activeBranchId = branch.id;
+      this.commit();
+      syncBranch(b, branch);
+      return branch;
+    },
+    setActiveBranch: function (bookId, branchId) {
+      var b = this.book(bookId); if (!b) return;
+      if (branchId && !this.branch(bookId, branchId)) return;
+      b.activeBranchId = branchId || null;
+      this.commit();
+    },
+    branchLineage: function (bookId, branchId) {
+      var out = [], seen = {}, cur = this.branch(bookId, branchId);
+      while (cur && !seen[cur.id]) {
+        seen[cur.id] = true;
+        out.unshift(cur);
+        cur = cur.parentId ? this.branch(bookId, cur.parentId) : null;
+      }
+      return out;
+    },
+    removeBranch: function (bookId, branchId) {
+      var b = this.book(bookId); if (!b) return;
+      normalizeBook(b);
+      var doomed = {};
+      doomed[branchId] = true;
+      var changed = true;
+      while (changed) {
+        changed = false;
+        b.branches.forEach(function (branch) {
+          if (branch.parentId && doomed[branch.parentId] && !doomed[branch.id]) {
+            doomed[branch.id] = true; changed = true;
+          }
+        });
+      }
+      b.branches = b.branches.filter(function (branch) { return !doomed[branch.id]; });
+      if (doomed[b.activeBranchId]) b.activeBranchId = null;
+      if (doomed[b.finalVersionBranchId]) b.finalVersionBranchId = null;
+      this.commit();
+      if (OW.Api && OW.Api.deleteBranch) {
+        Object.keys(doomed).forEach(function (id) { OW.Api.deleteBranch(bookId, id); });
+      }
     },
 
     /* ---------- 铭文 ---------- */
@@ -168,6 +325,7 @@
       ins.at = Date.now();
       b.inscriptions.push(ins);
       this.commit();
+      syncInscription(b, ins);
       return ins;
     },
     updateIns: function (bookId, insId, patch) {
@@ -176,11 +334,15 @@
         if (i.id === insId) for (var k in patch) i[k] = patch[k];
       });
       this.commit();
+      var updated = null;
+      b.inscriptions.forEach(function (i) { if (i.id === insId) updated = i; });
+      syncInscription(b, updated);
     },
     removeIns: function (bookId, insId) {
       var b = this.book(bookId); if (!b) return;
       b.inscriptions = b.inscriptions.filter(function (i) { return i.id !== insId; });
       this.commit();
+      if (OW.Api && OW.Api.deleteInscription) OW.Api.deleteInscription(bookId, insId);
     },
 
     /* ---------- 完整度：唯一计算入口 ---------- */
@@ -210,17 +372,20 @@
     },
 
     /* ---------- 契名 ---------- */
-    sign: function (bookId, penName) {
+    sign: function (bookId, penName, branchId) {
       var b = this.book(bookId); if (!b) return null;
       S.versionCounter++;
       b.signed = {
         reader: penName,
         // 原作者名字始终保留（§5.5 验收），这里不接受任何覆盖入参
         author: b.author,
+        branchId: branchId || b.finalVersionBranchId || null,
+        edition: (branchId || b.finalVersionBranchId) ? 'ai-rewrite' : 'annotated-original',
         no: S.versionCounter,
         at: Date.now()
       };
       this.commit();
+      syncBook(b);
       return b.signed;
     },
     versionLabel: function (b) {

@@ -18,7 +18,7 @@
   border-right:1px solid var(--ln-copper-soft);
   /* 左栏占版面 34%，暮紫原来给到 .6，整页实测暮紫 10.3%（§9 目标 2.8%）。
      暮紫是氛围层不是底色，降到 .34 后落在 2.7%，深色分量仍然够重。 */
-  background:linear-gradient(200deg,rgba(36,23,53,.34),rgba(9,13,24,.98));
+  background:linear-gradient(200deg,rgb(var(--surface-purple-rgb)/.34),rgb(var(--surface-base-rgb)/.98));
 }
 .fn-rail-head{flex:none;padding:var(--s6) var(--s6) var(--s5)}
 .fn-rail-head .eyebrow{font-size:var(--fs-mono);letter-spacing:.34em;color:var(--tx-low);text-transform:uppercase}
@@ -53,7 +53,7 @@
 .kind-row{
   display:flex;align-items:center;gap:var(--s3);
   padding:var(--s3) var(--s4);border-radius:var(--r-md);
-  border:1px solid var(--ln-hair);background:rgba(5,7,14,.4);
+  border:1px solid var(--ln-hair);background:rgb(var(--surface-deep-rgb)/.4);
   transition:border-color var(--t-slow) var(--ease),background-color var(--t-slow) var(--ease);
 }
 .kind-row .ic{
@@ -71,7 +71,7 @@
 .kind-row .pct{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.1em;min-width:4ch;text-align:right}
 .kind-row.is-lit{
   border-color:color-mix(in srgb,var(--c) 46%,transparent);
-  background:color-mix(in srgb,var(--c) 8%,rgba(5,7,14,.4));
+  background:color-mix(in srgb,var(--c) 8%,rgb(var(--surface-deep-rgb)/.4));
 }
 .kind-row.is-lit .n,.kind-row.is-lit .pct{color:var(--c)}
 
@@ -93,6 +93,22 @@
   position:relative;flex:1;min-height:0;display:flex;flex-direction:column;
   border-radius:var(--r-md);padding:var(--s8) var(--s9) var(--s6);
 }
+.fn-sheet-nav{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  margin:calc(var(--s5) * -1) 0 var(--s4);
+  color:var(--parch-ink-soft);font-family:var(--f-display);
+  font-size:var(--fs-mono);letter-spacing:.18em;
+}
+.fn-back{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
+  border:1px solid rgba(36,28,18,.42);border-radius:999px;cursor:pointer;
+  background:rgb(var(--surface-base-rgb)/.9);color:var(--parch-hi);
+  font-family:var(--f-serif);font-size:var(--fs-xs);letter-spacing:.08em;
+  box-shadow:0 7px 18px rgba(36,28,18,.2);
+  transition:transform var(--t-fast) var(--ease),background-color var(--t-fast) var(--ease);
+}
+.fn-back:hover{background:#172036;transform:translateX(-2px)}
+.fn-back:focus-visible{outline:2px solid var(--teal-magic);outline-offset:3px}
 .fn-sheet-head{flex:none;text-align:center;margin-bottom:var(--s6)}
 .fn-sheet-head .eyebrow{
   font-size:var(--fs-mono);letter-spacing:.4em;text-transform:uppercase;
@@ -121,6 +137,10 @@
 }
 .fn-write textarea::placeholder{color:rgba(91,75,51,.45)}
 .fn-write textarea:focus{outline:none}
+.fn-edition{flex:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-top:var(--s3);padding:var(--s3);border:1px solid rgba(122,88,50,.25);border-radius:var(--r-md);background:rgba(122,88,50,.06);color:var(--parch-ink)}
+.fn-edition>div:first-child{display:flex;flex-direction:column}.fn-edition strong{font-size:var(--fs-xs)}.fn-edition>div:first-child span{font-size:var(--fs-2xs);color:var(--parch-ink-soft)}
+.fn-edition-picks{display:flex;justify-content:flex-end;gap:var(--s2);flex-wrap:wrap}.fn-edition-picks .btn[aria-pressed=true]{box-shadow:0 0 0 2px rgba(83,167,184,.35);border-color:var(--teal-magic)}
+.cf-edition{padding:var(--s2) var(--s3);border:1px solid rgba(83,167,184,.4);border-radius:var(--r-md);color:var(--teal-magic);font-size:var(--fs-xs);text-align:center}
 
 .fn-sheet-foot{
   flex:none;display:flex;align-items:center;gap:var(--s4);
@@ -131,31 +151,35 @@
 .fn-count{font-family:var(--f-display);font-size:var(--fs-sm);letter-spacing:.12em;color:var(--parch-ink-soft)}
 .fn-count b{color:var(--parch-ink);font-weight:500;font-size:var(--fs-lg)}
 .fn-count.is-ok b{color:#4E7A3E}
-.fn-count.is-ok{animation:fnCountOk 600ms var(--ease-out) both}
-@keyframes fnCountOk{0%{transform:scale(1.12);color:var(--dusk-gold)}100%{transform:none}}
 
-/* 未满足条件时逐项说明还缺什么（§8）*/
+/* 契名条件改为纸面内的折叠区，不再悬浮遮挡终章正文。 */
 .gate{
-  position:absolute;right:var(--s8);bottom:calc(var(--s6) + 66px);z-index:3;
-  width:min(340px,42vw);padding:var(--s4) var(--s5);border-radius:var(--r-lg);
-  background:rgba(9,13,24,.97);border:1px solid var(--ln-copper);
-  box-shadow:var(--sh-lift);
-  animation:rise var(--t-enter) var(--ease-out) both;
+  position:relative;flex:none;width:100%;margin-top:var(--s3);
+  border:1px solid rgba(122,88,50,.34);border-radius:var(--r-md);
+  background:rgba(122,88,50,.06);color:var(--parch-ink);
 }
 .gate.is-hidden{display:none}
+.gate summary{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+  padding:9px var(--s4);cursor:pointer;list-style:none;user-select:none;
+}
+.gate summary::-webkit-details-marker{display:none}
 .gate .hd{
   display:flex;align-items:center;gap:var(--s2);
-  font-size:var(--fs-mono);letter-spacing:.2em;color:var(--dusk-red);
-  text-transform:uppercase;margin-bottom:var(--s3);
+  font-size:var(--fs-mono);letter-spacing:.12em;color:var(--dusk-red);
 }
 .gate .hd svg{width:13px;height:13px}
-.gate ul{list-style:none;display:flex;flex-direction:column;gap:var(--s2)}
+.gate-toggle{font-size:var(--fs-2xs);color:var(--parch-ink-soft)}
+.gate[open] .gate-toggle{font-size:0}
+.gate[open] .gate-toggle::after{content:"收起";font-size:var(--fs-2xs)}
+.gate-body{padding:0 var(--s4) var(--s3);border-top:1px solid rgba(122,88,50,.2)}
+.gate ul{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2) var(--s4);padding-top:var(--s3)}
 .gate li{
   display:flex;align-items:flex-start;gap:var(--s2);
-  font-size:var(--fs-xs);line-height:1.8;color:var(--tx-mid);
+  font-size:var(--fs-xs);line-height:1.65;color:var(--parch-ink-soft);
 }
 .gate li .mk{color:var(--dusk-red);flex:none;font-family:var(--f-display)}
-.gate li.is-done{color:var(--tx-faint);text-decoration:line-through}
+.gate li.is-done{opacity:.62;text-decoration:line-through}
 .gate li.is-done .mk{color:#4E7A3E;text-decoration:none}
 
 /* 矮屏（1366×768 录屏）：压内边距，给写字区留足高度，发布按钮始终在画面内 */
@@ -167,3 +191,8 @@
 }
 /* 全部满足时收成一行绿字 */
 .gate.is-ready .hd{color:var(--teal-magic)}
+
+@media (max-width:1100px){
+  .gate ul{grid-template-columns:1fr}
+  .fn-sheet-nav>span{display:none}
+}

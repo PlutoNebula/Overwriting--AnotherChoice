@@ -62,7 +62,7 @@
 .lib-me{
   display:flex;align-items:center;gap:var(--s3);
   padding:var(--s2) var(--s4);border:1px solid var(--ln-copper-soft);
-  border-radius:999px;background:rgba(5,7,14,.5);
+  border-radius:999px;background:rgb(var(--surface-deep-rgb)/.5);
 }
 .lib-me .av{
   width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
@@ -87,7 +87,7 @@
 .resume::before{                    /* 暮紫氛围：书库里暮紫占 11%，集中在这里 */
   content:"";position:absolute;inset:0;pointer-events:none;
   background:
-    radial-gradient(560px 220px at 8% 50%,rgba(36,23,53,.9),transparent 70%),
+    radial-gradient(560px 220px at 8% 50%,rgb(var(--surface-purple-rgb)/.9),transparent 70%),
     radial-gradient(420px 200px at 88% 120%,rgba(199,164,90,.09),transparent 70%);
 }
 .resume>*{position:relative;z-index:1}
@@ -116,6 +116,10 @@
 .sec-head h3{font-size:var(--fs-md);letter-spacing:.26em;color:var(--tx-mid);font-weight:400;white-space:nowrap}
 .sec-head .line{flex:1;height:1px;background:linear-gradient(90deg,var(--ln-copper),transparent)}
 .sec-head .n{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.14em}
+.lib-locked-note{
+  margin:calc(var(--s3) * -1) 0 var(--s4);font-size:var(--fs-xs);
+  line-height:1.7;color:var(--tx-low);letter-spacing:.04em;
+}
 
 /* ---------- 书卡网格 ---------- */
 .shelf{
@@ -129,7 +133,7 @@
   border:1px solid var(--ln-copper-soft);
   /* 书卡是「深色皮革 + 旧铜描边 + 暮金文字」（§9 硬规则 2），不是紫色块。
      四张卡加起来占屏幕 22%，用暮紫兜底会把整页判成紫。走皮革档。 */
-  background:linear-gradient(160deg,rgba(34,27,23,.75),rgba(9,13,24,.86));
+  background:linear-gradient(160deg,rgb(var(--surface-leather-rgb)/.75),rgb(var(--surface-base-rgb)/.86));
   box-shadow:var(--sh-card);
   transition:transform var(--t-enter) var(--ease),border-color var(--t-enter) var(--ease),
              box-shadow var(--t-enter) var(--ease);
@@ -144,7 +148,7 @@
 .bcard-cover svg{width:100%;height:100%;display:block;transition:transform var(--t-slow) var(--ease)}
 .bcard-cover::after{                /* 顶光，压住卡片下缘 */
   content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(180deg,transparent 52%,rgba(5,7,14,.85));
+  background:linear-gradient(180deg,transparent 52%,rgb(var(--surface-deep-rgb)/.85));
 }
 .bcard-badge{position:absolute;left:var(--s3);top:var(--s3);z-index:2}
 .bcard-body{padding:var(--s4) var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2)}
@@ -167,7 +171,7 @@
 .bcard.is-locked .bcard-body h4{color:var(--tx-mid)}
 .bcard-lock{
   position:absolute;inset:0;display:grid;place-items:center;z-index:2;
-  background:rgba(5,7,14,.5);
+  background:rgb(var(--surface-deep-rgb)/.5);
 }
 .bcard-lock svg{width:30px;height:30px;color:var(--tx-low);opacity:.75}
 
@@ -180,12 +184,12 @@
 .bcard-sig{
   position:absolute;left:0;right:0;bottom:var(--s3);z-index:2;text-align:center;
   font-family:var(--f-display);font-size:var(--fs-xs);letter-spacing:.14em;
-  color:var(--dusk-gold);text-shadow:0 0 12px rgba(9,13,24,.9);
+  color:var(--dusk-gold);text-shadow:0 0 12px rgb(var(--surface-base-rgb)/.9);
 }
 
 /* 导入卡：虚线，明确是入口不是书 */
 .bcard--add{
-  cursor:pointer;border-style:dashed;background:rgba(9,13,24,.4);
+  cursor:pointer;border-style:dashed;background:rgb(var(--surface-base-rgb)/.4);
   display:grid;place-items:center;min-height:280px;padding:var(--s6);
 }
 .bcard--add:hover{border-color:var(--teal-magic);box-shadow:none;transform:translateY(-3px)}
@@ -198,7 +202,7 @@
 .lib-foot{
   flex:none;display:flex;align-items:center;gap:var(--s3);
   padding:var(--s4) 0;border-top:1px solid var(--ln-hair);
-  background:linear-gradient(180deg,transparent,rgba(5,7,14,.6));
+  background:linear-gradient(180deg,transparent,rgb(var(--surface-deep-rgb)/.6));
 }
 .lib-foot .grow{flex:1}
 .lib-foot .note{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.1em}
@@ -219,7 +223,7 @@
   position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);z-index:var(--z-modal);
   display:flex;flex-direction:column;
   border-left:1px solid var(--ln-copper);
-  background:linear-gradient(200deg,rgba(36,23,53,.7),rgba(9,13,24,.98));
+  background:linear-gradient(200deg,rgb(var(--surface-purple-rgb)/.7),rgb(var(--surface-base-rgb)/.98));
   box-shadow:-30px 0 70px -30px rgba(0,0,0,.9);
   animation:slideIn var(--t-enter) var(--ease-out) both;
 }

@@ -2,7 +2,7 @@
 
 西幻风格的沉浸式读书批注与 AI 剧情覆写应用。读者在原文上留下四类「铭文」和「读者终章」，可以从任意选中位置让 AI 改写后续剧情、生长出分支，最终契名生成署有原作者与读者名字的个人版本。
 
-前端以浏览器 localStorage 为主态，后端（FastAPI + MySQL）作为按用户隔离的持久化副本。
+前端以浏览器 localStorage 为主态，后端（FastAPI + MySQL，未配置时自动降级 SQLite）作为按用户隔离的持久化副本。
 
 ---
 
@@ -25,7 +25,7 @@
 
 | 层 | 技术 |
 |----|------|
-| 后端 | FastAPI · SQLModel · MySQL 8.0（pymysql）· LangGraph + DeepSeek（AI 覆写） |
+| 后端 | FastAPI · SQLModel · MySQL 8.0 / SQLite 降级 · LangGraph + DeepSeek（AI 覆写） |
 | 前端 | Vite · 原生 JavaScript（无框架）· React（仅开场动画层） |
 | 运行时 | Python 3.12 · uv · Node.js |
 
@@ -58,7 +58,7 @@ works/             # 解读产物（旧流水线落盘目录）
 ### 1. 环境准备
 
 - Python 3.12（用 `uv` 管理依赖）
-- MySQL 8.0（本地实例）
+- MySQL 8.0（可选；未配置时使用项目根目录的本地 SQLite）
 - Node.js（前端）
 
 ### 2. 后端
@@ -74,7 +74,7 @@ uv sync
 uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-后端启动后会自动执行 `CREATE DATABASE IF NOT EXISTS overwriting` 并 `create_all` 建表。MySQL 未就绪或密码未配置时只告警、不阻断既有接口。
+后端启动后会优先执行 `CREATE DATABASE IF NOT EXISTS overwriting` 并 `create_all` 建表。MySQL 未就绪或密码未配置时自动改用项目根目录的 `overwriting.sqlite3`，书籍、铭文和分支接口仍可正常使用。
 
 ### 3. 前端
 
@@ -84,7 +84,7 @@ npm install
 npm run dev
 ```
 
-打开终端提示的本地地址（默认 `http://localhost:5173`）。前端通过 `OW.Api`（`overwrite.js` 中的 `API` 常量，默认 `http://127.0.0.1:8000`）调用后端，可用 `window.OW_API_BASE` 或 `<html data-api>` 覆盖。
+打开终端提示的本地地址（默认 `http://localhost:5173`）。前端通过 `frontend/public/legacy/js/api.js` 中的 `OW.Api` 调用后端（默认 `http://127.0.0.1:8000`），可用 `window.OW_API_BASE` 或 `<html data-api>` 覆盖。
 
 ---
 
@@ -149,6 +149,8 @@ npm run dev
 | GET | `/api/books/{book_id}/inscriptions?user_id=` | 列出该书铭文 |
 | POST | `/api/overwrite` | AI 覆写：起点章一次性推演（classify → 改世界书 → 改写 → review） |
 | POST | `/api/overwrite/chapter` | AI 覆写：全书顺序改写，逐章调用 |
+| POST | `/api/v1/rewrite/generate` | 新版覆写工作台兼容接口，复用现有 AI 覆写流水线 |
+| POST | `/api/v1/ai/test` | 测试前端填写的 OpenAI 兼容模型连接 |
 | POST | `/api/generate` | 旧版：文学解读流水线（load→chunk→analyze→assemble→review→write） |
 | GET | `/api/works` | 旧版：列出已生成作品目录 |
 | GET | `/api/works/{work_id}` | 旧版：读取已生成作品内容 |
@@ -159,10 +161,10 @@ npm run dev
 
 ## 前端说明
 
-- **数据主态**：浏览器 localStorage（`OW.Store`），后端是「尽力而为」的持久化副本——保存/删除 fire-and-forget，失败只 toast 提示、不回滚本地。
+- **数据主态**：浏览器 localStorage（`OW.Store`），后端是「尽力而为」的持久化副本——保存/删除 fire-and-forget，失败写入控制台且不回滚本地。
 - **用户标识**：`OW.Api.userId()` 返回 `OW.Store.get().reader`（读者署名），未署名时 `guest`；所有请求拼 `?user_id=`。
-- **后端地址**：`frontend/public/legacy/js/overwrite.js` 的 `API` 常量（默认 `http://127.0.0.1:8000`）。
-- **拆章**：前端「导入 TXT」直接上传到后端 `/api/import`，由后端按「第X章」拆章，前端用返回的 `chapters` 建书。
+- **后端地址**：`frontend/public/legacy/js/api.js` 的 `ORIGIN`（默认 `http://127.0.0.1:8000`）。
+- **导入**：新版前端在浏览器内解析 TXT 并立即保存到 localStorage，随后异步把结构化书籍同步到后端。
 - **分支铭文隔离**：内联标记与右侧铭文面板都按当前分支隔离——读原作只见原文铭文，读某分支只见该分支铭文。
 
 ---

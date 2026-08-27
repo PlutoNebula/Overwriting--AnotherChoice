@@ -7,6 +7,7 @@
   'use strict';
   var OW = (w.OW = w.OW || {});
   var D = w.document;
+  var saveTimer = null;
   var SVG;
 
   var Fn = {
@@ -31,6 +32,11 @@
             '<section class="fn-sheet parch corners">' +
               '<i class="cnr tl"></i><i class="cnr tr"></i>' +
               '<i class="cnr bl"></i><i class="cnr br"></i>' +
+              '<div class="fn-sheet-nav">' +
+                '<button class="fn-back" id="fnBack" aria-label="返回阅读器">' +
+                  '<span aria-hidden="true">←</span> 回到阅读</button>' +
+                '<span>Reader’s Coda</span>' +
+              '</div>' +
               '<header class="fn-sheet-head">' +
                 '<div class="eyebrow" id="fnBook"></div>' +
                 '<h2>写下你的终章</h2>' +
@@ -43,14 +49,14 @@
                 '<textarea id="fnText" aria-label="读者终章正文" ' +
                   'placeholder="我读到的是……"></textarea>' +
               '</div>' +
+              '<section class="fn-edition" id="fnEdition" aria-label="选择要契名的故事版本"></section>' +
+              '<details class="gate" id="fnGate"></details>' +
               '<footer class="fn-sheet-foot">' +
                 '<span class="fn-count" id="fnCount"></span>' +
                 '<span class="grow"></span>' +
-                '<button class="btn btn--sm btn--ghost" id="fnBack">回到阅读</button>' +
                 '<button class="btn btn--primary" id="fnPub">发布并进入契名仪式</button>' +
               '</footer>' +
             '</section>' +
-            '<div class="gate" id="fnGate"></div>' +
           '</main>' +
         '</div>';
 
@@ -63,16 +69,15 @@
         OW.App.openBook(self.bookId);
       });
       var ta = D.getElementById('fnText');
-      var saveTimer = null;
       ta.addEventListener('input', function () {
         var b = OW.Store.book(self.bookId); if (!b) return;
         b.finale = ta.value;
         OW.Store.commit(true);              // 静默存，不触发整页重绘打断输入
+        w.clearTimeout(saveTimer);
+        saveTimer = w.setTimeout(function () {
+          if (OW.Api && OW.Api.saveBook) OW.Api.saveBook(b);
+        }, 600);
         self.paint();
-        if (OW.Api && OW.Api.saveBook) {
-          w.clearTimeout(saveTimer);
-          saveTimer = w.setTimeout(function () { OW.Api.saveBook(b); }, 600);
-        }
       });
       D.getElementById('fnPub').addEventListener('click', function () { self.publish(); });
     },
@@ -83,6 +88,8 @@
       if (!b) return OW.App.go('library');
       D.getElementById('fnText').value = b.finale || '';
       D.getElementById('fnBook').textContent = b.title + ' · ' + b.author + ' 著';
+      if (!b.finalVersionBranchId && b.activeBranchId) b.finalVersionBranchId = b.activeBranchId;
+      OW.Store.commit(true);
       this.paint();
     },
 
@@ -90,6 +97,24 @@
     paint: function () {
       var b = OW.Store.book(this.bookId); if (!b) return;
       var pr = OW.Store.progress(b.id), R = OW.RULES;
+      var accepted = (b.branches || []).filter(function (x) { return x.status === 'accepted'; });
+
+      var edition = D.getElementById('fnEdition');
+      edition.innerHTML = '<div><strong>契名版本</strong><span>选择最终进入封面的故事路线</span></div>' +
+        '<div class="fn-edition-picks"><button class="btn btn--sm" data-edition="" aria-pressed="' +
+          (!b.finalVersionBranchId) + '">原作批注版</button>' +
+        accepted.map(function (branch) {
+          var depth = OW.Store.branchLineage(b.id, branch.id).length || 1;
+          return '<button class="btn btn--sm rd-rewrite-btn" data-edition="' + branch.id +
+            '" aria-pressed="' + (b.finalVersionBranchId === branch.id) + '">AI 改编 · ' +
+            SVG.esc(branch.title) + ' · ' + (depth > 1 ? depth + ' 级分支' : '第 1 分支') + '</button>';
+        }).join('') + '</div>';
+      edition.hidden = accepted.length === 0;
+      edition.onclick = function (e) {
+        var pick = e.target.closest('[data-edition]'); if (!pick) return;
+        b.finalVersionBranchId = pick.getAttribute('data-edition') || null;
+        OW.Store.commit(true); Fn.paint();
+      };
 
       /* 字数 */
       var cEl = D.getElementById('fnCount');
@@ -165,24 +190,25 @@
 
       gate.className = 'gate' + (pr.ready ? ' is-ready' : '');
       gate.innerHTML =
-        '<div class="hd">' + SVG.icon(pr.ready ? 'check' : 'warn', 13) +
-          (pr.ready ? '发布条件已满足' : '还差这些才能契名') + '</div>' +
-        '<ul>' + items.map(function (it) {
+        '<summary><span class="hd">' + SVG.icon(pr.ready ? 'check' : 'warn', 13) +
+          (pr.ready ? '发布条件已满足' : '查看还差哪些契名条件') + '</span>' +
+          '<span class="gate-toggle">展开</span></summary>' +
+        '<div class="gate-body"><ul>' + items.map(function (it) {
           return '<li class="' + (it.done ? 'is-done' : '') + '">' +
             '<span class="mk">' + (it.done ? '✓' : '·') + '</span>' + it.tx + '</li>';
-        }).join('') + '</ul>';
+        }).join('') + '</ul></div>';
 
       var pub = D.getElementById('fnPub');
       pub.disabled = !pr.ready;
       pub.setAttribute('aria-disabled', String(!pr.ready));
-      pub.title = pr.ready ? '进入契名仪式' : '发布条件尚未满足，右侧列出了还缺什么';
+      pub.title = pr.ready ? '进入契名仪式' : '发布条件尚未满足，可展开上方条件清单查看';
     },
 
     /** 发布前再次确认用户名（§5.5），原作者名字不可编辑 */
     publish: function () {
       var b = OW.Store.book(this.bookId);
       var pr = OW.Store.progress(b.id);
-      if (!pr.ready) return OW.toast('发布条件尚未满足，请看右侧列出的缺项。', 'warn');
+      if (!pr.ready) return OW.toast('发布条件尚未满足，请展开条件清单查看缺项。', 'warn');
 
       var st = OW.Store.get();
       var wrap = D.createElement('div');
@@ -194,6 +220,8 @@
           '<input class="input input--quill" id="cfName" maxlength="10" ' +
             'value="' + SVG.esc(st.reader || '') + '" aria-label="你的署名">' +
           '<div class="preview" id="cfPrev"></div>' +
+          (b.finalVersionBranchId ? '<div class="cf-edition">AI 剧情覆写版 · ' +
+            SVG.esc((OW.Store.branch(b.id, b.finalVersionBranchId) || {}).title || '已采纳分支') + '</div>' : '') +
           '<div class="keep">原作者 <b>' + SVG.esc(b.author) + '</b> 的「著」始终保留，' +
             '你以「编注」的身份进入这本书。</div>' +
           '<div class="row">' +
