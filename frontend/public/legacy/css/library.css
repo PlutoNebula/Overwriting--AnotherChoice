@@ -116,6 +116,10 @@
 .sec-head h3{font-size:var(--fs-md);letter-spacing:.26em;color:var(--tx-mid);font-weight:400;white-space:nowrap}
 .sec-head .line{flex:1;height:1px;background:linear-gradient(90deg,var(--ln-copper),transparent)}
 .sec-head .n{font-size:var(--fs-mono);color:var(--tx-faint);letter-spacing:.14em}
+.lib-locked-note{
+  margin:calc(var(--s3) * -1) 0 var(--s4);font-size:var(--fs-xs);
+  line-height:1.7;color:var(--tx-low);letter-spacing:.04em;
+}
 
 /* ---------- 书卡网格 ---------- */
 .shelf{

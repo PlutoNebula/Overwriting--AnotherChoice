@@ -31,6 +31,11 @@
             '<section class="fn-sheet parch corners">' +
               '<i class="cnr tl"></i><i class="cnr tr"></i>' +
               '<i class="cnr bl"></i><i class="cnr br"></i>' +
+              '<div class="fn-sheet-nav">' +
+                '<button class="fn-back" id="fnBack" aria-label="返回阅读器">' +
+                  '<span aria-hidden="true">←</span> 回到阅读</button>' +
+                '<span>Reader’s Coda</span>' +
+              '</div>' +
               '<header class="fn-sheet-head">' +
                 '<div class="eyebrow" id="fnBook"></div>' +
                 '<h2>写下你的终章</h2>' +
@@ -44,14 +49,13 @@
                   'placeholder="我读到的是……"></textarea>' +
               '</div>' +
               '<section class="fn-edition" id="fnEdition" aria-label="选择要契名的故事版本"></section>' +
+              '<details class="gate" id="fnGate"></details>' +
               '<footer class="fn-sheet-foot">' +
                 '<span class="fn-count" id="fnCount"></span>' +
                 '<span class="grow"></span>' +
-                '<button class="btn btn--sm btn--ghost" id="fnBack">回到阅读</button>' +
                 '<button class="btn btn--primary" id="fnPub">发布并进入契名仪式</button>' +
               '</footer>' +
             '</section>' +
-            '<div class="gate" id="fnGate"></div>' +
           '</main>' +
         '</div>';
 
@@ -181,24 +185,25 @@
 
       gate.className = 'gate' + (pr.ready ? ' is-ready' : '');
       gate.innerHTML =
-        '<div class="hd">' + SVG.icon(pr.ready ? 'check' : 'warn', 13) +
-          (pr.ready ? '发布条件已满足' : '还差这些才能契名') + '</div>' +
-        '<ul>' + items.map(function (it) {
+        '<summary><span class="hd">' + SVG.icon(pr.ready ? 'check' : 'warn', 13) +
+          (pr.ready ? '发布条件已满足' : '查看还差哪些契名条件') + '</span>' +
+          '<span class="gate-toggle">展开</span></summary>' +
+        '<div class="gate-body"><ul>' + items.map(function (it) {
           return '<li class="' + (it.done ? 'is-done' : '') + '">' +
             '<span class="mk">' + (it.done ? '✓' : '·') + '</span>' + it.tx + '</li>';
-        }).join('') + '</ul>';
+        }).join('') + '</ul></div>';
 
       var pub = D.getElementById('fnPub');
       pub.disabled = !pr.ready;
       pub.setAttribute('aria-disabled', String(!pr.ready));
-      pub.title = pr.ready ? '进入契名仪式' : '发布条件尚未满足，右侧列出了还缺什么';
+      pub.title = pr.ready ? '进入契名仪式' : '发布条件尚未满足，可展开上方条件清单查看';
     },
 
     /** 发布前再次确认用户名（§5.5），原作者名字不可编辑 */
     publish: function () {
       var b = OW.Store.book(this.bookId);
       var pr = OW.Store.progress(b.id);
-      if (!pr.ready) return OW.toast('发布条件尚未满足，请看右侧列出的缺项。', 'warn');
+      if (!pr.ready) return OW.toast('发布条件尚未满足，请展开条件清单查看缺项。', 'warn');
 
       var st = OW.Store.get();
       var wrap = D.createElement('div');

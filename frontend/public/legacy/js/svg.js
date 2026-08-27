@@ -22,7 +22,8 @@
     plus:   '<path d="M12 5v14M5 12h14"/>',
     moon:   '<path d="M20 14A8 8 0 019.5 4 8.5 8.5 0 1020 14z"/>',
     sun:    '<circle cx="12" cy="12" r="4.4"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/>',
-    gear:   '<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.6M12 18.4V21M3 12h2.6M18.4 12H21M5.6 5.6l1.9 1.9M16.5 16.5l1.9 1.9M18.4 5.6l-1.9 1.9M7.5 16.5l-1.9 1.9"/>',
+    settings:'<path d="M4 6h8M16 6h4M4 12h3M11 12h9M4 18h10M18 18h2"/>' +
+             '<circle cx="14" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',
     replay: '<path d="M4 12a8 8 0 108-8"/><path d="M4 4v5h5"/>',
     quill:  '<path d="M4 20l3.5-1L20 6.5A2.5 2.5 0 0016.5 3L4 15.5z"/><path d="M8 16l4 0"/>',
     trash:  '<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/>',
@@ -34,7 +35,8 @@
     import: '<path d="M12 4v10M8 10.5l4 4 4-4"/><path d="M5 17v2a1 1 0 001 1h12a1 1 0 001-1v-2"/>',
     back:   '<path d="M11 6l-6 6 6 6M5 12h14"/>',
     dl:     '<path d="M12 4v11M8 11.5l4 4 4-4M5 20h14"/>',
-    branch: '<circle cx="6" cy="5" r="1.8"/><circle cx="6" cy="19" r="1.8"/><circle cx="18" cy="5" r="1.8"/><path d="M6 7v10"/><path d="M6 12h6a6 6 0 006-6"/>'
+    branch: '<circle cx="6" cy="5" r="1.8"/><circle cx="6" cy="19" r="1.8"/><circle cx="18" cy="5" r="1.8"/><path d="M6 7v10"/><path d="M6 12h6a6 6 0 006-6"/>',
+    expand: '<path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5"/>'
   };
 
   SVG.icon = function (name, size) {

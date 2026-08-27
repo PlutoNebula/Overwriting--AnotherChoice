@@ -58,6 +58,26 @@
       this.render();
     },
 
+    /** 从阅读器的分支面板重新打开一个已保存候选，继续编辑或采纳。 */
+    openSaved: function (bookId, branchId) {
+      var branch = OW.Store.branch(bookId, branchId);
+      if (!branch) return;
+      this.open({
+        bookId: bookId,
+        chapterIndex: branch.chapterIndex || 0,
+        paragraphIndex: branch.paragraphIndex || 0,
+        sourceType: branch.sourceType || 'chapter_end',
+        quote: branch.quote || '',
+        parentId: branch.parentId || null,
+        intent: branch.intent || '',
+        tendencies: branch.tendencies || ['角色选择'],
+        intensity: branch.intensity || 'medium',
+        mustPreserve: branch.mustPreserve || ''
+      });
+      this.candidate = branch;
+      this.render();
+    },
+
     render: function () {
       var self = this, b = OW.Store.book(this.bookId);
       if (!b || !this.el) return;

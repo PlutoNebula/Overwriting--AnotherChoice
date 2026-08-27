@@ -26,10 +26,10 @@
             '<div class="lib-tools">' +
               '<div class="lib-me" id="libMe"></div>' +
               '<span class="rule-v"></span>' +
-              '<button class="btn btn--icon" id="libTheme" title="日夜切换" ' +
-                'aria-label="日夜切换"></button>' +
-              '<button class="btn btn--icon" id="libSet" title="全局设置 · AI 设置" ' +
-                'aria-label="全局设置">' + SVG.icon('gear') + '</button>' +
+              '<button class="btn btn--icon" id="libTheme" title="切换昼夜模式" ' +
+                'aria-label="切换昼夜模式"></button>' +
+              '<button class="btn btn--icon" id="libSet" title="打开全局设置与 AI 设置" ' +
+                'aria-label="打开全局设置与 AI 设置">' + SVG.icon('settings') + '</button>' +
             '</div>' +
           '</header>' +
 
@@ -40,6 +40,7 @@
               '<h3>示例藏书</h3><span class="line"></span>' +
               '<span class="n" id="libCount"></span>' +
             '</div>' +
+            '<p class="lib-locked-note">后两本是初赛版的世界观展示藏书，暂未放入正文，不存在隐藏的解锁操作。</p>' +
             '<div class="shelf" id="libShelf"></div>' +
           '</div>' +
 
@@ -117,19 +118,54 @@
         var raw = String(fr.result || '').replace(/\r\n/g, '\n').trim();
         if (!raw) return OW.toast(OW.COPY.txtBad, 'warn');
 
-        // 简单分章：按空行成段，每 ~14 段切一章，保证目录不为空
-        var paras = raw.split(/\n{1,}/).map(function (s) { return s.trim(); })
-                       .filter(function (s) { return s.length > 0; });
-        if (!paras.length) return OW.toast(OW.COPY.txtBad, 'warn');
-
-        var chapters = [], per = 14;
-        for (var i = 0; i < paras.length; i += per) {
-          chapters.push({
-            title: '第 ' + (chapters.length + 1) + ' 节',
-            paras: paras.slice(i, i + per)
-          });
-        }
         var name = file.name.replace(/\.txt$/i, '').slice(0, 24) || '无名秘典';
+        var lines = raw.replace(/^\uFEFF/, '').split('\n');
+
+        /*
+         * 只把“独占一行的章节标题”当作分章点。
+         * 旧版按每 14 个自然段硬切，长篇小说会把 24 节错误拆成上百节。
+         */
+        function isChapterHeading(line) {
+          var t = String(line || '').trim();
+          if (!t || t.length > 80) return false;
+          return /^第\s*[〇零一二三四五六七八九十百千万两\d]+\s*[章节回卷篇部](?:\s*[·：:、.．\-—]\s*.*|\s+.*)?$/.test(t) ||
+            /^(?:chapter|section|part)\s+[0-9ivxlcdm]+(?:\s*[.:：\-—]\s*.*|\s+.*)?$/i.test(t) ||
+            /^\d{1,3}[、.．]\s*\S.{0,40}$/.test(t);
+        }
+
+        function paragraphize(chunk) {
+          var blocks = chunk.join('\n').trim().split(/\n\s*\n+/)
+            .map(function (s) { return s.replace(/\n+/g, ' ').trim(); })
+            .filter(function (s) { return s.length > 0; });
+          // 没有空行的 TXT 通常是一行一段，保留这种排版。
+          if (blocks.length <= 1) {
+            blocks = chunk.map(function (s) { return s.trim(); })
+              .filter(function (s) { return s.length > 0; });
+          }
+          return blocks;
+        }
+
+        var marks = [];
+        lines.forEach(function (line, index) {
+          if (isChapterHeading(line)) marks.push({ index: index, title: line.trim() });
+        });
+
+        var chapters = [];
+        if (marks.length) {
+          // 标题前若有作者信息或序言，单独保留为“卷首”，不吞进第一章。
+          var preface = paragraphize(lines.slice(0, marks[0].index));
+          if (preface.length) chapters.push({ title: '卷首', paras: preface });
+          marks.forEach(function (mark, index) {
+            var end = index + 1 < marks.length ? marks[index + 1].index : lines.length;
+            var body = paragraphize(lines.slice(mark.index + 1, end));
+            if (body.length) chapters.push({ title: mark.title, paras: body });
+          });
+        } else {
+          // 找不到可靠章节标题时宁可保留成一章，也不再凭段落数乱切。
+          var body = paragraphize(lines);
+          if (body.length) chapters.push({ title: '正文', paras: body });
+        }
+        if (!chapters.length) return OW.toast(OW.COPY.txtBad, 'warn');
         OW.Store.addBook({
           id: 'u' + Date.now(), sample: false, locked: false,
           title: name, author: '导入·佚名', sub: '由你导入',
@@ -157,6 +193,8 @@
       var themeBtn = D.getElementById('libTheme');
       themeBtn.innerHTML = SVG.icon(st.night ? 'moon' : 'sun');
       themeBtn.classList.toggle('is-on', !st.night);
+      themeBtn.title = st.night ? '切换到日间模式' : '切换到夜间模式';
+      themeBtn.setAttribute('aria-label', themeBtn.title);
 
       /* 继续阅读：首屏突出（§5.2）*/
       var pick = null;
@@ -207,7 +245,7 @@
             if (e.target.closest('[data-del]')) return;   // 删除按钮自己处理
             var b = OW.Store.book(id);
             if (!b) return;
-            if (b.locked) return OW.toast(OW.COPY.locked, 'warn');
+            if (b.locked) return OW.toast(b.lockedHint || OW.COPY.locked, 'warn');
             if (card.__jump) return;                      // 双击保护
             card.__jump = true;
             // 留 280ms 播完符文法阵，再进入阅读器；避免动画残留到下一页。
@@ -281,7 +319,7 @@
         '<div class="bcard-cover">' + SVG.cover(b) +
           (b.locked ? '<div class="bcard-lock">' + SVG.icon('lock', 30) + '</div>' : '') +
           '<div class="bcard-badge">' +
-            (b.locked ? '<span class="tag tag--locked">尚未解封</span>'
+            (b.locked ? '<span class="tag tag--locked">初赛版暂未开放</span>'
              : b.signed ? '<span class="tag tag--gold"><i class="dot"></i>已契名</span>'
              : pr.pct > 0 ? '<span class="tag tag--teal"><i class="dot"></i>覆写中</span>'
              : '<span class="tag">未启封</span>') +
@@ -292,7 +330,7 @@
           '<h4>' + SVG.esc(b.title) + '</h4>' +
           '<div class="by">' + SVG.esc(b.author) + ' 著</div>' +
           '<div class="ver">' +
-            (b.signed ? OW.Store.versionLabel(b) : (b.locked ? '待解封' : '尚无覆写版本')) +
+            (b.signed ? OW.Store.versionLabel(b) : (b.locked ? '世界观展示藏书 · 无需解锁' : '尚无覆写版本')) +
           '</div>' +
           (b.locked ? '' :
             '<div class="bar"><i style="width:' + pr.pct + '%"></i></div>' +

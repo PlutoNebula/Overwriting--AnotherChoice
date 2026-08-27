@@ -129,7 +129,10 @@
     },
 
     openBook: function (id) { this.go('reader'); OW.Rd.open(id); },
-    openRewrite: function (ctx) { this.go('rewrite'); OW.Rw.open(ctx); },
+    openRewrite: function (ctx) {
+      this.go('rewrite');
+      OW.Rw.open(ctx);
+    },
     openFinale: function (id) { this.go('finale'); OW.Fn.open(id); },
     openCeremony: function (id, name) { this.go('ceremony'); OW.Cm.open(id, name); },
     openOpus: function (id) { this.go('opus'); OW.Op.open(id); },
@@ -137,21 +140,25 @@
     /* ---------- 主题单一来源（§5.3）---------- */
     applyTheme: function () {
       var st = OW.Store.get();
-      // 夜间模式与阅读器配色共用同一套状态：night=false 时正文走 sepia，
-      // night=true 时保留用户选的 night/dark，避免局部漏色
-      var theme = st.night ? (st.theme === 'sepia' ? 'night' : st.theme) : 'sepia';
+      // “昼/夜”必须一眼可辨：夜间固定使用深色纸面，日间恢复用户选择的羊皮纸/旧纸。
+      // 旧逻辑会把 night=true 又映射到浅色羊皮纸，因此按钮看似完全没有效果。
+      var theme = st.night ? 'dark' : (st.theme === 'dark' ? 'sepia' : (st.theme || 'sepia'));
       D.documentElement.setAttribute('data-theme', theme);
       D.documentElement.setAttribute('data-night', st.night ? '1' : '0');
     },
     setTheme: function (t) {
-      var st = OW.Store.get();
-      OW.Store.set({ theme: t, night: t !== 'sepia' ? st.night : false });
+      OW.Store.set({ theme: t, night: t === 'dark' });
       this.applyTheme();
       if (this.view === 'reader') OW.Rd.render();
       if (this.view === 'library') OW.Lib.render();
     },
     setNight: function (on) {
-      OW.Store.set({ night: !!on });
+      var st = OW.Store.get();
+      OW.Store.set({
+        night: !!on,
+        // 离开夜间时恢复成清晰的浅色阅读纸；进入夜间固定深色。
+        theme: on ? 'dark' : (st.theme === 'dark' ? 'sepia' : st.theme)
+      });
       this.applyTheme();
       if (this.view === 'reader') OW.Rd.render();
       if (this.view === 'library') OW.Lib.render();

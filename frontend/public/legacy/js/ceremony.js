@@ -264,7 +264,7 @@
         '</div>';
 
       function row(k, v) {
-        return '<div class="rw"><span class="k">' + k + '</span>' +
+        return '<div class="op-row"><span class="k">' + k + '</span>' +
           '<span class="v">' + SVG.esc(v) + '</span></div>';
       }
 

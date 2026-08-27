@@ -189,6 +189,13 @@ h1,h2,h3,h4{font-weight:500;line-height:var(--lh-tight);letter-spacing:.01em}
   width:108px;height:108px;
   margin:-54px 0 0 -54px;
 }
+.rune-gate--cursor{
+  width:76px;height:76px;
+  margin:-38px 0 0 -38px;
+  animation-duration:180ms;
+}
+.rune-gate--cursor .rune-gate__outer,
+.rune-gate--cursor .rune-gate__inner{animation-duration:180ms}
 .rune-gate svg{
   width:100%;height:100%;display:block;overflow:visible;
   filter:drop-shadow(0 0 8px rgba(199,164,90,.46));

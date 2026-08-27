@@ -43,7 +43,7 @@
     ].join('');
   }
 
-  function showGate(target, clientX, clientY) {
+  function showGate(target, clientX, clientY, variant) {
     if (!target) return;
     removeGate();
 
@@ -57,7 +57,8 @@
 
     var gate = D.createElement('span');
     gate.className = 'rune-gate' +
-      (target.classList && target.classList.contains('btn') ? ' rune-gate--button' : '');
+      (variant === 'cursor' ? ' rune-gate--cursor' :
+        (target.classList && target.classList.contains('btn') ? ' rune-gate--button' : ''));
     gate.setAttribute('aria-hidden', 'true');
     gate.style.left = Math.round(x) + 'px';
     gate.style.top = Math.round(y) + 'px';
@@ -66,31 +67,13 @@
     activeGate = gate;
 
     gate.addEventListener('animationend', removeGate, { once: true });
-    cleanupTimer = w.setTimeout(removeGate, 400);
+    cleanupTimer = w.setTimeout(removeGate, variant === 'cursor' ? 240 : 400);
   }
 
-  /* 事件委托：
-     1. 可读书卡播放完整法阵；
-     2. 全站金色主按钮自动播放稍小的按钮法阵；
-     3. 删除、关闭、设置、未解封卡和键盘操作不播放，避免干扰高频操作。 */
-  D.addEventListener('click', function (e) {
-    /* 键盘触发的 click 没有真实点击坐标，也不需要装饰性动画。 */
-    if (e.detail === 0) return;
-
-    var card = e.target.closest('.bcard');
-    if (card) {
-      var nestedButton = e.target.closest('button');
-      if ((nestedButton && nestedButton !== card) ||
-          card.classList.contains('is-locked') ||
-          card.classList.contains('bcard--add')) return;
-      showGate(card, e.clientX, e.clientY);
-      return;
-    }
-
-    var primary = e.target.closest('.btn--primary');
-    if (!primary || primary.id === 'introStart' || primary.disabled ||
-        primary.getAttribute('aria-disabled') === 'true') return;
-    showGate(primary, e.clientX, e.clientY);
+  /* 任意真实鼠标左键按下都给出短促反馈；键盘与触屏不额外制造装饰动画。 */
+  D.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || (e.pointerType && e.pointerType !== 'mouse')) return;
+    showGate(e.target, e.clientX, e.clientY, 'cursor');
   });
 
   OW.RuneGate = { show: showGate, remove: removeGate };

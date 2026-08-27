@@ -13,6 +13,7 @@
     { id: 'toc',    ico: 'toc',    lb: '目录' },
     { id: 'search', ico: 'search', lb: '搜索' },
     { id: 'bookmark', ico: 'mark', lb: '书签' },
+    { id: 'branch', ico: 'branch', lb: '分支' },
     { id: 'tts',    ico: 'tts',    lb: '朗读' },
     { id: 'display', ico: 'disp',  lb: '配色' }
   ];
@@ -85,12 +86,12 @@
       D.getElementById('rdPrev').addEventListener('click', function () { self.turn(-1); });
       D.getElementById('rdNext').addEventListener('click', function () { self.turn(1); });
 
-      /* 铭文面板也参与互斥：打开它就收起左侧面板 */
+      /* 右侧铭文与左侧工具栏独立开关，切换工具不应让铭文消失。 */
       D.getElementById('rdIns').addEventListener('click', function () { self.setPanel('inscription'); });
 
       D.getElementById('rdMark').addEventListener('click', function () { self.addBookmark(); });
 
-      /* 左侧五个 tab */
+      /* 左侧六个 tab */
       var tabs = D.getElementById('rdTabs');
       tabs.innerHTML = PANELS.map(function (p) {
         return '<button role="tab" data-p="' + p.id + '" aria-selected="false" ' +
@@ -139,18 +140,20 @@
       this.sel = null;
       this.stopTts();
       if (this.panel === null) this.panel = 'toc';
+      if (this.panel === 'branch') this.asideOn = true;
       this.render();
     },
 
-    /** 六个辅助面板互斥（§4）：同一时间只打开一个 */
+    /** 左侧辅助面板与右侧铭文彼此独立，只有用户主动操作才收起对应一侧。 */
     setPanel: function (id) {
       if (id === 'inscription') {
-        this.asideOn = !(this.asideOn && this.panel === null);
-        // 打开铭文面板 → 左侧全收
-        if (this.asideOn) this.panel = null;
+        this.asideOn = !this.asideOn;
       } else {
         if (this.panel === id) { this.panel = null; }
-        else { this.panel = id; this.asideOn = false; }
+        else {
+          this.panel = id;
+          if (id === 'branch') this.asideOn = true;
+        }
       }
       // 两边都空时至少留一个，避免出现空白大页
       if (this.panel === null && !this.asideOn) this.asideOn = true;
@@ -200,7 +203,125 @@
       D.getElementById('rdIns').classList.toggle('is-on', this.asideOn);
     },
 
-    /* ---------- 左侧五合一面板 ---------- */
+    /* ---------- 分支面板：只复用视觉与交互，数据仍使用本项目 OW.Store ---------- */
+    branchPaneHtml: function (b) {
+      var accepted = (b.branches || []).filter(function (branch) {
+        return branch.status === 'accepted';
+      });
+      var candidates = (b.branches || []).filter(function (branch) {
+        return branch.status !== 'accepted';
+      });
+      var acceptedById = {};
+      accepted.forEach(function (branch) { acceptedById[branch.id] = branch; });
+
+      function branchNo(branch) {
+        var i = accepted.indexOf(branch);
+        return String(i + 1).padStart(2, '0');
+      }
+      function childrenOf(parentId) {
+        return accepted.filter(function (branch) { return (branch.parentId || null) === parentId; });
+      }
+      function nodeHtml(branch) {
+        var children = childrenOf(branch.id);
+        var meta = '第 ' + ((branch.chapterIndex || 0) + 1) + ' 节' +
+          (branch.parentId ? ' · 承分支' : ' · 承原作');
+        return '<li><button class="br-node ' + (b.activeBranchId === branch.id ? 'is-cur' : '') +
+          '" data-branch-id="' + branch.id + '" aria-pressed="' +
+          (b.activeBranchId === branch.id) + '">' +
+            '<span class="br-badge is-branch">分支 ' + branchNo(branch) + '</span>' +
+            '<span class="br-tt">' + SVG.esc(branch.title || '未命名分支') + '</span>' +
+            '<span class="br-meta">' + meta + '</span>' +
+          '</button>' +
+          (children.length ? '<ul>' + children.map(nodeHtml).join('') + '</ul>' : '') +
+        '</li>';
+      }
+
+      var roots = accepted.filter(function (branch) {
+        return !branch.parentId || !acceptedById[branch.parentId];
+      });
+      var tree = '<ul><li><button class="br-node ' + (!b.activeBranchId ? 'is-cur' : '') +
+        '" data-branch-id="" aria-pressed="' + (!b.activeBranchId) + '">' +
+          '<span class="br-badge is-canon">原作</span>' +
+          '<span class="br-tt">' + SVG.esc(b.title) + '</span>' +
+          '<span class="br-meta">canonical</span>' +
+        '</button>' +
+        (roots.length ? '<ul>' + roots.map(nodeHtml).join('') + '</ul>' : '') +
+      '</li></ul>';
+
+      var candidateHtml = candidates.length
+        ? '<div class="br-drafts-hd">已保留的候选</div><div class="br-drafts">' +
+          candidates.map(function (branch) {
+            return '<button class="br-draft" data-branch-candidate="' + branch.id + '">' +
+              '<span class="nm">' + SVG.esc(branch.title || '未命名候选') + '</span>' +
+              '<span class="qu">' + SVG.esc((branch.content || '').slice(0, 70)) + '</span>' +
+            '</button>';
+          }).join('') + '</div>'
+        : '';
+
+      return '<div class="side-pane is-on side-branch">' +
+        '<div class="hd br-panel-head"><span>分支 <span class="hd-sub">' + accepted.length +
+          ' 条分支 · ' + candidates.length + ' 个候选</span></span>' +
+          '<button class="btn btn--sm br-workbench" data-branch-workbench ' +
+            'aria-label="展开分支工作台" title="展开分支工作台">' +
+            SVG.icon('expand', 13) + ' 展开</button></div>' +
+        '<div class="br-tree">' + tree + '</div>' +
+        (!accepted.length && !candidates.length
+          ? '<div class="br-empty">还没有分支。<br>点击顶栏“AI 改编”，让故事从当前章节长出另一条路线。</div>'
+          : '') +
+        candidateHtml +
+        '<div class="br-actions">' +
+          '<button class="btn btn--sm" data-branch-original>回到原作</button>' +
+          '<button class="btn btn--sm rd-rewrite-btn" data-branch-continue>' +
+            SVG.icon('star', 12) + ' 从当前分支继续改编</button>' +
+        '</div></div>';
+    },
+
+    wireBranchPane: function (b) {
+      var self = this;
+      var body = D.getElementById('rdSideBody');
+      if (!body) return;
+      body.addEventListener('click', function (e) {
+        if (e.target.closest('[data-branch-workbench]')) {
+          self.openRewriteAtEnd();
+          return;
+        }
+        var node = e.target.closest('[data-branch-id]');
+        if (node) {
+          var id = node.getAttribute('data-branch-id') || null;
+          if ((b.activeBranchId || null) === id) return;
+          OW.Store.setActiveBranch(b.id, id);
+          OW.toast(id ? '已切换到这条剧情分支。' : '已回到原作路线。');
+          self.render();
+          return;
+        }
+        var draft = e.target.closest('[data-branch-candidate]');
+        if (draft) {
+          OW.App.go('rewrite');
+          OW.Rw.openSaved(b.id, draft.getAttribute('data-branch-candidate'));
+          return;
+        }
+        if (e.target.closest('[data-branch-original]')) {
+          OW.Store.setActiveBranch(b.id, null);
+          OW.toast('已回到原作路线。');
+          self.render();
+          return;
+        }
+        if (e.target.closest('[data-branch-continue]')) {
+          var active = b.activeBranchId ? OW.Store.branch(b.id, b.activeBranchId) : null;
+          if (!active) return self.openRewriteAtEnd();
+          OW.App.openRewrite({
+            bookId: b.id,
+            chapterIndex: active.chapterIndex || (b.page || 0),
+            sourceType: 'branch',
+            quote: (active.content || '').slice(-160),
+            parentId: active.id,
+            intent: (active.nextDirections || [])[0] || ''
+          });
+        }
+      });
+    },
+
+    /* ---------- 左侧六合一面板 ---------- */
     renderSide: function (b, idx) {
       var tabs = D.getElementById('rdTabs').querySelectorAll('button[data-p]');
       for (var i = 0; i < tabs.length; i++) {
@@ -257,9 +378,16 @@
           if (it) self.goto(bms[parseInt(it.getAttribute('data-i'), 10)].ch);
         });
 
+      } else if (this.panel === 'branch') {
+        body.innerHTML = this.branchPaneHtml(b);
+        this.wireBranchPane(b);
+
       } else if (this.panel === 'tts') {
         body.innerHTML = '<div class="side-pane is-on"><div class="hd">朗读</div>' +
           '<div class="tts-box" id="rdTts">' +
+            '<div class="tts-voice-card">' + SVG.icon('tts', 18) +
+              '<div><strong>温柔女声朗读</strong><span id="rdTtsVoice">优先使用系统中文女声 · 舒缓节奏</span></div>' +
+            '</div>' +
             '<div class="tts-viz">' + new Array(19).join('<i></i>') + '</div>' +
             '<div class="tts-row">' +
               '<button class="btn btn--sm btn--primary" data-t="play">开始</button>' +
@@ -280,14 +408,14 @@
         body.innerHTML = '<div class="side-pane is-on"><div class="hd">阅读配色与字号</div>' +
           '<div class="disp-row"><span class="lb">配色</span>' +
             '<div class="swatches" id="rdSw">' +
-              '<button class="swatch sw-night" data-v="night" aria-label="羊皮纸" ' +
+              '<button class="swatch sw-night" data-v="night" aria-label="明亮羊皮纸（日间）" ' +
                 'aria-pressed="' + (st.theme === 'night') + '"></button>' +
-              '<button class="swatch sw-sepia" data-v="sepia" aria-label="旧纸" ' +
+              '<button class="swatch sw-sepia" data-v="sepia" aria-label="暖黄旧纸（日间）" ' +
                 'aria-pressed="' + (st.theme === 'sepia') + '"></button>' +
-              '<button class="swatch sw-dark" data-v="dark" aria-label="深色" ' +
+              '<button class="swatch sw-dark" data-v="dark" aria-label="深色纸面（夜间）" ' +
                 'aria-pressed="' + (st.theme === 'dark') + '"></button>' +
             '</div>' +
-            '<div class="t-low" style="font-size:11px">深色配色与全局夜间模式共用同一套主题状态。</div>' +
+            '<div class="t-low" style="font-size:11px">选择深色会进入夜间模式；两种浅色均为日间阅读。</div>' +
           '</div>' +
           '<div class="disp-row"><span class="lb">字号</span>' +
             '<div class="seg" id="rdFs">' +
@@ -503,8 +631,23 @@
       if (act === 'play') {
         if (!ch) return;
         sp.cancel();
-        var u = new w.SpeechSynthesisUtterance(ch.paras.join('\n'));
-        u.lang = 'zh-CN'; u.rate = .95;
+        var u = new w.SpeechSynthesisUtterance(ch.paras.join('。\n'));
+        var voices = sp.getVoices ? sp.getVoices() : [];
+        var zh = voices.filter(function (voice) { return /^zh/i.test(voice.lang || ''); });
+        var preferred = [/xiaoyi/i, /xiaoxiao/i, /yaoyao/i, /huihui/i, /晓伊|晓晓|瑶瑶|慧慧/];
+        var picked = null;
+        for (var p = 0; p < preferred.length && !picked; p++) {
+          picked = zh.find(function (voice) { return preferred[p].test(voice.name || ''); }) || null;
+        }
+        picked = picked || zh[0] || null;
+        if (picked) { u.voice = picked; u.lang = picked.lang || 'zh-CN'; }
+        else u.lang = 'zh-CN';
+        // 优先使用系统中文女声，语速略慢、音调轻柔，适合连续阅读。
+        u.rate = 0.94; u.pitch = 1.05; u.volume = 1;
+        var voiceLabel = D.getElementById('rdTtsVoice');
+        if (voiceLabel) voiceLabel.textContent = picked
+          ? '温柔女声 · ' + (picked.name || '系统中文女声')
+          : '温柔女声 · 系统中文音色';
         u.onend = function () { if (box) box.classList.remove('is-on'); };
         sp.speak(u);
         if (box) box.classList.add('is-on');
