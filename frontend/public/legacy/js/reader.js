@@ -40,27 +40,16 @@
               '<span class="s" id="rdSub"></span></div>' +
             '<div class="rd-sigil" id="rdSigil"></div>' +
             '<div class="rd-tools">' +
-              '<span class="tool-group">' +
-                '<button class="btn btn--icon" id="rdNight" aria-label="日夜切换"></button>' +
-                '<button class="btn btn--icon" id="rdMark" aria-label="加书签" ' +
-                  'title="给当前一节加书签">' + SVG.icon('mark') + '</button>' +
-              '</span>' +
-              '<span class="tool-group">' +
-                '<button class="btn btn--sm" id="rdIns">' + SVG.icon('ins', 15) +
-                  ' 铭文</button>' +
-              '</span>' +
-              '<span class="tool-group">' +
-                '<button class="btn btn--overwrite" id="rdOw" ' +
-                  'title="打开剧情覆写工作台" aria-label="AI 改编">' +
-                  '<svg class="spark" viewBox="0 0 12 12" aria-hidden="true">' +
-                    '<path d="M6 0.5l1.4 3.2 3.1.3-2.4 2.1.7 3-2.8-1.6-2.8 1.6.7-3-2.4-2.1 3.1-.3z"/>' +
-                  '</svg>' +
-                  '✦ AI 改编' +
-                '</button>' +
-              '</span>' +
-              '<span class="tool-group">' +
-                '<button class="btn btn--sm btn--primary" id="rdFin">读者终章</button>' +
-              '</span>' +
+              '<span class="rule-v"></span>' +
+              '<button class="btn btn--icon" id="rdNight" aria-label="日夜切换"></button>' +
+              '<button class="btn btn--icon" id="rdMark" aria-label="加书签" ' +
+                'title="给当前一节加书签">' + SVG.icon('mark') + '</button>' +
+              '<span class="rule-v"></span>' +
+              '<button class="btn btn--sm" id="rdIns">' + SVG.icon('ins', 15) +
+                ' 铭文</button>' +
+              '<button class="btn btn--sm rd-rewrite-btn" id="rdRewrite">' + SVG.icon('star', 15) +
+                ' AI 改编</button>' +
+              '<button class="btn btn--sm btn--primary" id="rdFin">读者终章</button>' +
             '</div>' +
           '</header>' +
 
@@ -92,21 +81,17 @@
 
       D.getElementById('rdBack').addEventListener('click', function () { OW.App.go('library'); });
       D.getElementById('rdFin').addEventListener('click', function () { OW.App.openFinale(self.bookId); });
+      D.getElementById('rdRewrite').addEventListener('click', function () { self.openRewriteAtEnd(); });
       D.getElementById('rdNight').addEventListener('click', function () { OW.App.toggleNight(); });
       D.getElementById('rdPrev').addEventListener('click', function () { self.turn(-1); });
       D.getElementById('rdNext').addEventListener('click', function () { self.turn(1); });
 
-      /* 铭文面板也参与互斥：打开它就收起左侧面板 */
+      /* 右侧铭文与左侧工具栏独立开关，切换工具不应让铭文消失。 */
       D.getElementById('rdIns').addEventListener('click', function () { self.setPanel('inscription'); });
-
-      /* AI 改编 · 从阅读器顶栏进入工作台（默认从本章结尾改编） */
-      D.getElementById('rdOw').addEventListener('click', function () {
-        if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
-      });
 
       D.getElementById('rdMark').addEventListener('click', function () { self.addBookmark(); });
 
-      /* 左侧五个 tab */
+      /* 左侧六个 tab */
       var tabs = D.getElementById('rdTabs');
       tabs.innerHTML = PANELS.map(function (p) {
         return '<button role="tab" data-p="' + p.id + '" aria-selected="false" ' +
@@ -155,18 +140,20 @@
       this.sel = null;
       this.stopTts();
       if (this.panel === null) this.panel = 'toc';
+      if (this.panel === 'branch') this.asideOn = true;
       this.render();
     },
 
-    /** 六个辅助面板互斥（§4）：同一时间只打开一个 */
+    /** 左侧辅助面板与右侧铭文彼此独立，只有用户主动操作才收起对应一侧。 */
     setPanel: function (id) {
       if (id === 'inscription') {
-        this.asideOn = !(this.asideOn && this.panel === null);
-        // 打开铭文面板 → 左侧全收
-        if (this.asideOn) this.panel = null;
+        this.asideOn = !this.asideOn;
       } else {
         if (this.panel === id) { this.panel = null; }
-        else { this.panel = id; this.asideOn = false; }
+        else {
+          this.panel = id;
+          if (id === 'branch') this.asideOn = true;
+        }
       }
       // 两边都空时至少留一个，避免出现空白大页
       if (this.panel === null && !this.asideOn) this.asideOn = true;
@@ -186,10 +173,8 @@
       var chs = b.chapters || [], idx = Math.min(b.page || 0, Math.max(chs.length - 1, 0));
 
       D.getElementById('rdTitle').textContent = b.title + ' · ' + b.author + ' 著';
-      var subEl = D.getElementById('rdSub');
-      subEl.innerHTML = SVG.esc(chs[idx] ? chs[idx].title : '') +
-        '　|　铭文 ' + b.inscriptions.length + ' 枚' +
-        this._currentLineBadgeHtml(b);
+      D.getElementById('rdSub').textContent =
+        (chs[idx] ? chs[idx].title : '') + '　|　铭文 ' + b.inscriptions.length + ' 枚';
 
       var nb = D.getElementById('rdNight');
       nb.innerHTML = SVG.icon(st.night ? 'moon' : 'sun');
@@ -216,15 +201,127 @@
       D.getElementById('rdPrev').disabled = idx <= 0;
       D.getElementById('rdNext').disabled = idx >= chs.length - 1;
       D.getElementById('rdIns').classList.toggle('is-on', this.asideOn);
-
-      var badge = D.getElementById('rdBrBadge');
-      if (badge) {
-        var self = this;
-        badge.addEventListener('click', function () { self.setPanel('branch'); });
-      }
     },
 
-    /* ---------- 左侧五合一面板 ---------- */
+    /* ---------- 分支面板：只复用视觉与交互，数据仍使用本项目 OW.Store ---------- */
+    branchPaneHtml: function (b) {
+      var accepted = (b.branches || []).filter(function (branch) {
+        return branch.status === 'accepted';
+      });
+      var candidates = (b.branches || []).filter(function (branch) {
+        return branch.status !== 'accepted';
+      });
+      var acceptedById = {};
+      accepted.forEach(function (branch) { acceptedById[branch.id] = branch; });
+
+      function branchNo(branch) {
+        var i = accepted.indexOf(branch);
+        return String(i + 1).padStart(2, '0');
+      }
+      function childrenOf(parentId) {
+        return accepted.filter(function (branch) { return (branch.parentId || null) === parentId; });
+      }
+      function nodeHtml(branch) {
+        var children = childrenOf(branch.id);
+        var meta = '第 ' + ((branch.chapterIndex || 0) + 1) + ' 节' +
+          (branch.parentId ? ' · 承分支' : ' · 承原作');
+        return '<li><button class="br-node ' + (b.activeBranchId === branch.id ? 'is-cur' : '') +
+          '" data-branch-id="' + branch.id + '" aria-pressed="' +
+          (b.activeBranchId === branch.id) + '">' +
+            '<span class="br-badge is-branch">分支 ' + branchNo(branch) + '</span>' +
+            '<span class="br-tt">' + SVG.esc(branch.title || '未命名分支') + '</span>' +
+            '<span class="br-meta">' + meta + '</span>' +
+          '</button>' +
+          (children.length ? '<ul>' + children.map(nodeHtml).join('') + '</ul>' : '') +
+        '</li>';
+      }
+
+      var roots = accepted.filter(function (branch) {
+        return !branch.parentId || !acceptedById[branch.parentId];
+      });
+      var tree = '<ul><li><button class="br-node ' + (!b.activeBranchId ? 'is-cur' : '') +
+        '" data-branch-id="" aria-pressed="' + (!b.activeBranchId) + '">' +
+          '<span class="br-badge is-canon">原作</span>' +
+          '<span class="br-tt">' + SVG.esc(b.title) + '</span>' +
+          '<span class="br-meta">canonical</span>' +
+        '</button>' +
+        (roots.length ? '<ul>' + roots.map(nodeHtml).join('') + '</ul>' : '') +
+      '</li></ul>';
+
+      var candidateHtml = candidates.length
+        ? '<div class="br-drafts-hd">已保留的候选</div><div class="br-drafts">' +
+          candidates.map(function (branch) {
+            return '<button class="br-draft" data-branch-candidate="' + branch.id + '">' +
+              '<span class="nm">' + SVG.esc(branch.title || '未命名候选') + '</span>' +
+              '<span class="qu">' + SVG.esc((branch.content || '').slice(0, 70)) + '</span>' +
+            '</button>';
+          }).join('') + '</div>'
+        : '';
+
+      return '<div class="side-pane is-on side-branch">' +
+        '<div class="hd br-panel-head"><span>分支 <span class="hd-sub">' + accepted.length +
+          ' 条分支 · ' + candidates.length + ' 个候选</span></span>' +
+          '<button class="btn btn--sm br-workbench" data-branch-workbench ' +
+            'aria-label="展开分支工作台" title="展开分支工作台">' +
+            SVG.icon('expand', 13) + ' 展开</button></div>' +
+        '<div class="br-tree">' + tree + '</div>' +
+        (!accepted.length && !candidates.length
+          ? '<div class="br-empty">还没有分支。<br>点击顶栏“AI 改编”，让故事从当前章节长出另一条路线。</div>'
+          : '') +
+        candidateHtml +
+        '<div class="br-actions">' +
+          '<button class="btn btn--sm" data-branch-original>回到原作</button>' +
+          '<button class="btn btn--sm rd-rewrite-btn" data-branch-continue>' +
+            SVG.icon('star', 12) + ' 从当前分支继续改编</button>' +
+        '</div></div>';
+    },
+
+    wireBranchPane: function (b) {
+      var self = this;
+      var body = D.getElementById('rdSideBody');
+      if (!body) return;
+      body.addEventListener('click', function (e) {
+        if (e.target.closest('[data-branch-workbench]')) {
+          self.openRewriteAtEnd();
+          return;
+        }
+        var node = e.target.closest('[data-branch-id]');
+        if (node) {
+          var id = node.getAttribute('data-branch-id') || null;
+          if ((b.activeBranchId || null) === id) return;
+          OW.Store.setActiveBranch(b.id, id);
+          OW.toast(id ? '已切换到这条剧情分支。' : '已回到原作路线。');
+          self.render();
+          return;
+        }
+        var draft = e.target.closest('[data-branch-candidate]');
+        if (draft) {
+          OW.App.go('rewrite');
+          OW.Rw.openSaved(b.id, draft.getAttribute('data-branch-candidate'));
+          return;
+        }
+        if (e.target.closest('[data-branch-original]')) {
+          OW.Store.setActiveBranch(b.id, null);
+          OW.toast('已回到原作路线。');
+          self.render();
+          return;
+        }
+        if (e.target.closest('[data-branch-continue]')) {
+          var active = b.activeBranchId ? OW.Store.branch(b.id, b.activeBranchId) : null;
+          if (!active) return self.openRewriteAtEnd();
+          OW.App.openRewrite({
+            bookId: b.id,
+            chapterIndex: active.chapterIndex || (b.page || 0),
+            sourceType: 'branch',
+            quote: (active.content || '').slice(-160),
+            parentId: active.id,
+            intent: (active.nextDirections || [])[0] || ''
+          });
+        }
+      });
+    },
+
+    /* ---------- 左侧六合一面板 ---------- */
     renderSide: function (b, idx) {
       var tabs = D.getElementById('rdTabs').querySelectorAll('button[data-p]');
       for (var i = 0; i < tabs.length; i++) {
@@ -282,12 +379,15 @@
         });
 
       } else if (this.panel === 'branch') {
-        body.innerHTML = this._branchPaneHtml(b);
-        this._wireBranchPane(b);
+        body.innerHTML = this.branchPaneHtml(b);
+        this.wireBranchPane(b);
 
       } else if (this.panel === 'tts') {
         body.innerHTML = '<div class="side-pane is-on"><div class="hd">朗读</div>' +
           '<div class="tts-box" id="rdTts">' +
+            '<div class="tts-voice-card">' + SVG.icon('tts', 18) +
+              '<div><strong>温柔女声朗读</strong><span id="rdTtsVoice">优先使用系统中文女声 · 舒缓节奏</span></div>' +
+            '</div>' +
             '<div class="tts-viz">' + new Array(19).join('<i></i>') + '</div>' +
             '<div class="tts-row">' +
               '<button class="btn btn--sm btn--primary" data-t="play">开始</button>' +
@@ -308,14 +408,14 @@
         body.innerHTML = '<div class="side-pane is-on"><div class="hd">阅读配色与字号</div>' +
           '<div class="disp-row"><span class="lb">配色</span>' +
             '<div class="swatches" id="rdSw">' +
-              '<button class="swatch sw-night" data-v="night" aria-label="羊皮纸" ' +
+              '<button class="swatch sw-night" data-v="night" aria-label="明亮羊皮纸（日间）" ' +
                 'aria-pressed="' + (st.theme === 'night') + '"></button>' +
-              '<button class="swatch sw-sepia" data-v="sepia" aria-label="旧纸" ' +
+              '<button class="swatch sw-sepia" data-v="sepia" aria-label="暖黄旧纸（日间）" ' +
                 'aria-pressed="' + (st.theme === 'sepia') + '"></button>' +
-              '<button class="swatch sw-dark" data-v="dark" aria-label="深色" ' +
+              '<button class="swatch sw-dark" data-v="dark" aria-label="深色纸面（夜间）" ' +
                 'aria-pressed="' + (st.theme === 'dark') + '"></button>' +
             '</div>' +
-            '<div class="t-low" style="font-size:11px">深色配色与全局夜间模式共用同一套主题状态。</div>' +
+            '<div class="t-low" style="font-size:11px">选择深色会进入夜间模式；两种浅色均为日间阅读。</div>' +
           '</div>' +
           '<div class="disp-row"><span class="lb">字号</span>' +
             '<div class="seg" id="rdFs">' +
@@ -344,266 +444,6 @@
       }
     },
 
-    /* ---------- 分支面板：树 + 切换 + 候选 ---------- */
-    _pad2: function (n) { n = String(n || 0); while (n.length < 2) n = '0' + n; return n; },
-
-    _branchLabel: function (b, id) {
-      if (!id) return '原作路线';
-      if (!OW.OwStore) return '分支';
-      var br = OW.OwStore.byId(b, id);
-      return br ? ('分支 ' + this._pad2(br.no)) : '分支';
-    },
-
-    _branchPaneHtml: function (b) {
-      if (!OW.OwStore) {
-        return '<div class="side-pane is-on"><div class="hd">分支</div>' +
-          '<div class="empty">' + SVG.icon('branch', 40) +
-          '<div>剧情覆写工作台未加载。</div></div></div>';
-      }
-      OW.OwStore.ensure(b);
-      var self = this;
-      var cur = OW.OwStore.currentLine(b);
-      var tree = OW.OwStore.tree(b);
-      var drafts = OW.OwStore.drafts(b);
-
-      var canonCls = cur.branchId === null ? 'is-cur' : '';
-      var canonNode =
-        '<li><button class="br-node ' + canonCls + '" data-br="" ' +
-          'aria-pressed="' + (cur.branchId === null) + '">' +
-          '<span class="br-badge is-canon">原作</span>' +
-          '<span class="br-tt">' + SVG.esc(b.title) + '</span>' +
-          '<span class="br-meta">canonical</span>' +
-        '</button>';
-
-      function nodeHtml(br) {
-        var isCur = cur.branchId === br.id;
-        var badge = '<span class="br-badge is-branch">分支 ' + self._pad2(br.no) + '</span>';
-        var meta = '第 ' + ((br.origin && br.origin.ch != null ? br.origin.ch : 0) + 1) + ' 节' +
-          (br.parentId ? ' · 承 ' + self._pad2(self._findBrNo(b, br.parentId)) : ' · 承原作');
-        var demoTag = br.demo ? '<span class="br-demo">演示</span>' : '';
-        return '<li><button class="br-node ' + (isCur ? 'is-cur' : '') + '" data-br="' + br.id + '" ' +
-            'aria-pressed="' + isCur + '">' +
-            badge + demoTag +
-            '<span class="br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
-            '<span class="br-meta">' + meta + '</span>' +
-            '<span class="br-del" data-brdel="' + br.id + '" role="button" title="删除分支">×</span>' +
-          '</button>' +
-          (br.children && br.children.length
-            ? '<ul>' + br.children.map(nodeHtml).join('') + '</ul>'
-            : '') +
-        '</li>';
-      }
-
-      var treeUl = canonNode +
-        (tree.length ? '<ul>' + tree.map(nodeHtml).join('') + '</ul>' : '') +
-        '</li>';
-
-      var draftsBlock = drafts.length
-        ? '<div class="br-drafts-hd">已保留的候选</div>' +
-          '<div class="br-drafts">' + drafts.map(function (d) {
-            return '<button class="br-draft" data-draft="' + d.id + '">' +
-              '<span class="nm">' + SVG.esc(d.title || '未命名候选') + '</span>' +
-              '<span class="qu">' + SVG.esc((d.narrative || '').slice(0, 60)) + '…</span>' +
-              '<span class="br-draft-del" data-brdraftdel="' + d.id + '" role="button" title="删除候选">×</span>' +
-            '</button>';
-          }).join('') + '</div>'
-        : '';
-
-      var emptyHint = (!tree.length && !drafts.length)
-        ? '<div class="br-empty">还没有任何分支。<br>顶栏「✦ AI 改编」或章末尾的卡片可以写下第一条。</div>'
-        : '';
-
-      return '<div class="side-pane is-on side-branch">' +
-        '<div class="hd">分支 <span class="hd-sub">' + tree.length + ' 条分支 · ' +
-          drafts.length + ' 个候选</span></div>' +
-        '<div class="br-tree"><ul>' + treeUl + '</ul></div>' +
-        emptyHint +
-        draftsBlock +
-        '<div class="br-actions">' +
-          '<button class="btn btn--sm" id="rdBrReset">回到原作</button>' +
-          '<button class="btn btn--sm btn--overwrite" id="rdBrMore">' +
-            SVG.icon('star', 12) + ' 从当前分支继续改编</button>' +
-        '</div>' +
-      '</div>';
-    },
-
-    _findBrNo: function (b, id) {
-      if (!OW.OwStore) return '?';
-      var br = OW.OwStore.byId(b, id);
-      return br ? br.no : '?';
-    },
-
-    delBranch: function (branchId) {
-      var b = OW.Store.book(this.bookId);
-      if (!b) return;
-      var br = OW.OwStore && OW.OwStore.byId(b, branchId);
-      if (!br) return;
-      var self = this;
-      OW.confirm({
-        title: '删除分支 ' + this._pad2(br.no) + '？',
-        body: '这条分支会被移除，其子分支将接到它的父分支上；原文不受影响。',
-        ok: '确认删除', danger: true,
-        onOk: function () {
-          OW.OwStore.removeBranch(b, branchId);
-          if (OW.Api && OW.Api.deleteBranch) OW.Api.deleteBranch(b.id, branchId);
-          self.render();
-          OW.toast('分支已删除。');
-        }
-      });
-    },
-
-    _wireBranchPane: function (b) {
-      var self = this;
-      var body = D.getElementById('rdSideBody');
-      if (!body) return;
-
-      body.addEventListener('click', function (e) {
-        var del = e.target.closest('.br-del[data-brdel]');
-        if (del) {
-          e.stopPropagation();
-          self.delBranch(del.getAttribute('data-brdel'));
-          return;
-        }
-        var draftDel = e.target.closest('.br-draft-del[data-brdraftdel]');
-        if (draftDel) {
-          e.stopPropagation();
-          self.delBranch(draftDel.getAttribute('data-brdraftdel'));
-          return;
-        }
-        var node = e.target.closest('.br-node[data-br]');
-        if (node) {
-          var id = node.getAttribute('data-br') || null;
-          var prev = OW.OwStore.currentLine(b).branchId || null;
-          if (prev === id) return;                        // 点当前线不重复提示
-          OW.OwStore.setCurrent(b, id);
-          OW.toast(id
-            ? '已切换到' + self._branchLabel(b, id) + '。'
-            : '已回到原作路线。');
-          self.render();
-          return;
-        }
-        var draft = e.target.closest('.br-draft[data-draft]');
-        if (draft) {
-          if (OW.Ow && OW.Ow.openDraft) OW.Ow.openDraft(self.bookId, draft.getAttribute('data-draft'));
-          return;
-        }
-        if (e.target.closest('#rdBrReset')) {
-          if ((OW.OwStore.currentLine(b).branchId || null) === null) return;
-          OW.OwStore.setCurrent(b, null);
-          OW.toast('已回到原作路线。');
-          self.render();
-          return;
-        }
-        if (e.target.closest('#rdBrMore')) {
-          if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
-          return;
-        }
-      });
-    },
-
-    /* 顶栏当前路线徽章：紫金 = 分支，青铜 = 原作，可点击打开分支面板 */
-    _currentLineBadgeHtml: function (b) {
-      if (!OW.OwStore) return '';
-      OW.OwStore.ensure(b);
-      var cur = OW.OwStore.currentLine(b);
-      var brCount = ((b.branches || []).filter(function (x) { return x.status !== 'draft'; })).length;
-      if (cur.branchId === null) {
-        if (!brCount) return '';
-        return '　|　<button class="rd-br-badge-btn is-canon" id="rdBrBadge" ' +
-          'title="点击查看分支树">原作路线 · ' + brCount + ' 条分支</button>';
-      }
-      var br = OW.OwStore.byId(b, cur.branchId);
-      var lb = br ? ('分支 ' + this._pad2(br.no)) : '分支';
-      return '　|　<button class="rd-br-badge-btn is-branch" id="rdBrBadge" ' +
-        'title="点击查看分支树">✦ ' + lb + '</button>';
-    },
-
-    /* 当前分支线上，从原作到当前分支的所有祖先分支（含自身），
-       按 no 升序返回；起点在本章的分支才会在本章正文之后显示。 */
-    _branchLineage: function (b) {
-      if (!OW.OwStore) return [];
-      OW.OwStore.ensure(b);
-      var cur = OW.OwStore.currentLine(b);
-      if (!cur.branchId) return [];
-      var line = [];
-      var seen = {};
-      var id = cur.branchId;
-      while (id && !seen[id]) {
-        seen[id] = true;
-        var br = OW.OwStore.byId(b, id);
-        if (!br) break;
-        line.unshift(br);
-        id = br.parentId;
-      }
-      return line;
-    },
-
-    /** 计算本章激活的分支正文：从当前分支线祖先中挑该章有 narrative 的、深度最深的一条 */
-    _activeBranchForChapter: function (b, idx) {
-      var lineage = this._branchLineage(b);
-      if (!lineage.length) return null;
-      for (var i = lineage.length - 1; i >= 0; i--) {
-        var br = lineage[i];
-        var text = OW.OwStore && OW.OwStore.chapterNarrative(br, idx);
-        if (text) {
-          return { br: br, narrative: text,
-            demo: (br.chapters && br.chapters[idx] && br.chapters[idx].demo) || br.demo,
-            pending: br.pending && idx > (br.origin && br.origin.ch) };
-        }
-      }
-      /* 无本章正文，但当前分支线上有一条祖先起点在此之前且仍 pending：显示占位 */
-      for (var j = lineage.length - 1; j >= 0; j--) {
-        var b2 = lineage[j];
-        if (b2.pending && b2.origin && idx > b2.origin.ch) {
-          return { br: b2, narrative: '', demo: false, pending: true };
-        }
-      }
-      return null;
-    },
-
-    /** 分支正文替换整章原文；含头栏 + 「回到原作」 */
-    _branchInlineHtml: function (info, b, idx) {
-      var self = this;
-      var br = info.br;
-      var body = String(info.narrative || '').split(/\n{1,}/).map(function (t, pi) {
-        t = t.trim();
-        return t ? '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t, br.id) + '</p>' : '';
-      }).join('');
-      if (!body && info.pending) {
-        body =
-          '<div class="rd-fate-loom" role="status" aria-live="polite">' +
-            '<svg class="rd-fate-strings" viewBox="0 0 320 88" aria-hidden="true">' +
-              '<defs>' +
-                '<linearGradient id="rdFateG" x1="0" x2="1" y1="0" y2="0">' +
-                  '<stop offset="0" stop-color="#7A5832" stop-opacity="0"/>' +
-                  '<stop offset=".5" stop-color="#C7A45A" stop-opacity=".95"/>' +
-                  '<stop offset="1" stop-color="#8A5AB8" stop-opacity="0"/>' +
-                '</linearGradient>' +
-              '</defs>' +
-              '<path class="s s1" d="M0 22 Q80 6 160 22 T320 22"/>' +
-              '<path class="s s2" d="M0 44 Q80 68 160 44 T320 44"/>' +
-              '<path class="s s3" d="M0 66 Q80 50 160 66 T320 66"/>' +
-              '<circle class="knot" cx="160" cy="44" r="4"/>' +
-            '</svg>' +
-            '<div class="rd-fate-text">命运之弦正在被扭转……</div>' +
-            '<div class="rd-fate-sub">本节的分支剧情正在推演，稍后自动落笔</div>' +
-          '</div>';
-      }
-      var demoTag = info.demo ? '<span class="rd-br-tag demo">演示</span>' : '';
-      var pendingTag = info.pending
-        ? '<span class="rd-br-tag pending">命运之弦扭转中</span>' : '';
-      return '<div class="rd-branch-inline" data-br="' + br.id + '">' +
-        '<div class="rd-branch-hd rd-branch-hd--inline">' +
-          '<span class="rd-br-badge">分支 ' + this._pad2(br.no) + '</span>' +
-          demoTag + pendingTag +
-          '<span class="rd-br-tt">' + SVG.esc(br.title || '未命名分支') + '</span>' +
-          '<button class="rd-br-back" type="button" data-br-reset ' +
-            'title="回到原作路线">回到原作</button>' +
-        '</div>' +
-        body +
-      '</div>';
-    },
-
     /* ---------- 正文 ---------- */
     renderPage: function (b, idx) {
       var st = OW.Store.get();
@@ -618,71 +458,75 @@
       inner.style.setProperty('--rd-lh', st.lineHeight);
 
       var self = this;
-      var chs = b.chapters || [];
-      var isLast = idx >= chs.length - 1;
-
-      var outroHtml = isLast ? '' :
-        '<div class="ch-outro" id="rdChOutro" role="button" tabindex="0" ' +
-          'aria-label="故事也许可以不这样发生 · 打开剧情覆写工作台">' +
-          '<div class="eyebrow">Overwrite Workshop · §5.6</div>' +
-          '<div class="line">故事也许可以不这样发生……</div>' +
-          '<div class="hint">从这一章的结尾开始，写一条只属于你的分支</div>' +
-          '<span class="cta">' + SVG.icon('right', 11) + ' 打开覆写工作台</span>' +
-        '</div>';
-
-      /* 分支替换：当前分支线上本章若有重写正文，用它完整替换原文（原文不显示）。
-         若无本章正文但当前分支仍在 pending，也以占位块替换。 */
-      var info = self._activeBranchForChapter(b, idx);
-      var proseHtml = info
-        ? self._branchInlineHtml(info, b, idx)
-        : ch.paras.map(function (t, pi) {
-            return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
-          }).join('');
-      var isBranch = !!info;
-
       inner.innerHTML =
         '<header class="page-head">' +
           '<div class="ch">Chapter ' + (idx + 1) + '</div>' +
           '<h2>' + SVG.esc(ch.title) + '</h2>' +
           '<div class="orn">' + SVG.ornament() + '</div>' +
         '</header>' +
-        '<div class="prose ' + (isBranch ? 'is-branch' : '') + '" id="rdProse" ' +
-          'style="font-size:' + st.fontSize + 'px;line-height:' + st.lineHeight + '">' +
-          proseHtml +
+        '<div class="prose" id="rdProse" style="font-size:' + st.fontSize +
+          'px;line-height:' + st.lineHeight + '">' +
+          ch.paras.map(function (t, pi) {
+            return '<p data-p="' + pi + '">' + self.markup(b, idx, pi, t) + '</p>';
+          }).join('') +
         '</div>' +
-        outroHtml;
+        this.branchReadingHtml(b, idx) +
+        '<section class="rewrite-callout">' +
+          '<span class="rewrite-callout-mark">' + SVG.icon('star', 18) + '</span>' +
+          '<div><strong>故事也许可以不这样发生。</strong>' +
+            '<span>从本节结尾推演一条平行路线，原作不会被覆盖。</span></div>' +
+          '<button class="btn btn--sm rd-rewrite-btn" id="rdRewriteEnd">改变剧情</button>' +
+        '</section>';
 
-      if (!isLast) {
-        var outro = D.getElementById('rdChOutro');
-        if (outro) {
-          outro.addEventListener('click', function () {
-            if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
-          });
-          outro.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              if (OW.Ow && OW.Ow.openFromReader) OW.Ow.openFromReader(self.bookId);
-            }
-          });
-        }
-      }
-
-      /* 分支块内的 "回到原作" 按钮 */
-      inner.querySelectorAll('[data-br-reset]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          if (!OW.OwStore) return;
-          OW.OwStore.setCurrent(b, null);
-          OW.toast('已回到原作路线。');
-          self.render();
-        });
+      var end = D.getElementById('rdRewriteEnd');
+      if (end) end.addEventListener('click', function () { self.openRewriteAtEnd(); });
+      var origin = inner.querySelector('[data-branch-original]');
+      if (origin) origin.addEventListener('click', function () {
+        OW.Store.setActiveBranch(b.id, null); self.render(); OW.toast('已回到原作路线。');
+      });
+      var more = inner.querySelector('[data-branch-continue]');
+      if (more) more.addEventListener('click', function () {
+        var branch = OW.Store.branch(b.id, more.getAttribute('data-branch-continue'));
+        if (branch) OW.App.openRewrite({ bookId: b.id, chapterIndex: idx, sourceType: 'branch',
+          quote: branch.content.slice(-160), parentId: branch.id,
+          intent: (branch.nextDirections || [])[0] || '' });
       });
     },
 
+    branchReadingHtml: function (b, idx) {
+      if (!b.activeBranchId) return '';
+      var lineage = OW.Store.branchLineage(b.id, b.activeBranchId).filter(function (x) {
+        return x.status === 'accepted' && x.chapterIndex === idx;
+      });
+      if (!lineage.length) return '';
+      var last = lineage[lineage.length - 1];
+      return '<section class="branch-reading" aria-label="已采纳的 AI 剧情分支">' +
+        '<header><div><span class="t-eyebrow">AI Rewrite Route</span><h3>平行剧情 · ' +
+          SVG.esc(last.title) + '</h3></div><span class="tag">AI 剧情覆写版</span></header>' +
+        lineage.map(function (branch, i) {
+          return '<article><span class="branch-depth">分支 ' + (i + 1) + '</span><p>' +
+            SVG.esc(branch.content) + '</p></article>';
+        }).join('') +
+        '<footer><span>由 AI 辅助生成，内容由你选择并可编辑。</span><div>' +
+          '<button class="btn btn--sm btn--ghost" data-branch-original>回到原作</button>' +
+          '<button class="btn btn--sm rd-rewrite-btn" data-branch-continue="' + last.id + '">继续推演</button>' +
+        '</div></footer></section>';
+    },
+
+    openRewriteAtEnd: function () {
+      var b = OW.Store.book(this.bookId); if (!b) return;
+      var idx = b.page || 0, ch = (b.chapters || [])[idx]; if (!ch) return;
+      var active = b.activeBranchId ? OW.Store.branch(b.id, b.activeBranchId) : null;
+      OW.App.openRewrite({ bookId: b.id, chapterIndex: idx,
+        paragraphIndex: Math.max(ch.paras.length - 1, 0), sourceType: active ? 'branch' : 'chapter_end',
+        quote: active ? (active.content || '').slice(-160) : (ch.paras[ch.paras.length - 1] || ch.title),
+        parentId: active ? active.id : null });
+    },
+
     /** 把某段的铭文标记套进正文。同段多条按起点排序，互不重叠。 */
-    markup: function (b, ch, para, text, branchId) {
-      var self = this;
+    markup: function (b, ch, para, text) {
       var list = b.inscriptions.filter(function (i) {
-        return i.ch === ch && i.para === para && (i.branchId || null) === (branchId || null);
+        return i.ch === ch && i.para === para;
       }).sort(function (a, c) { return a.s - c.s; });
 
       if (!list.length) return SVG.esc(text);
@@ -692,8 +536,7 @@
         if (i.s < cur) return;                     // 防御：重叠的直接跳过，不做重叠批注
         out += SVG.esc(text.slice(cur, i.s));
         var k = OW.kindOf(i.kind);
-        out += '<span class="ins ins-' + i.kind +
-               (i.id === self.lastWrittenIns ? ' is-just' : '') + '" data-id="' + i.id +
+        out += '<span class="ins ins-' + i.kind + '" data-id="' + i.id +
                '" data-ico="' + k.ico + '" tabindex="0" role="button" ' +
                'aria-label="' + k.name + '铭文：' + SVG.esc(i.body.slice(0, 30)) + '" ' +
                'title="' + k.name + '（' + k.gloss + '）">' +
@@ -788,8 +631,23 @@
       if (act === 'play') {
         if (!ch) return;
         sp.cancel();
-        var u = new w.SpeechSynthesisUtterance(ch.paras.join('\n'));
-        u.lang = 'zh-CN'; u.rate = .95;
+        var u = new w.SpeechSynthesisUtterance(ch.paras.join('。\n'));
+        var voices = sp.getVoices ? sp.getVoices() : [];
+        var zh = voices.filter(function (voice) { return /^zh/i.test(voice.lang || ''); });
+        var preferred = [/xiaoyi/i, /xiaoxiao/i, /yaoyao/i, /huihui/i, /晓伊|晓晓|瑶瑶|慧慧/];
+        var picked = null;
+        for (var p = 0; p < preferred.length && !picked; p++) {
+          picked = zh.find(function (voice) { return preferred[p].test(voice.name || ''); }) || null;
+        }
+        picked = picked || zh[0] || null;
+        if (picked) { u.voice = picked; u.lang = picked.lang || 'zh-CN'; }
+        else u.lang = 'zh-CN';
+        // 优先使用系统中文女声，语速略慢、音调轻柔，适合连续阅读。
+        u.rate = 0.94; u.pitch = 1.05; u.volume = 1;
+        var voiceLabel = D.getElementById('rdTtsVoice');
+        if (voiceLabel) voiceLabel.textContent = picked
+          ? '温柔女声 · ' + (picked.name || '系统中文女声')
+          : '温柔女声 · 系统中文音色';
         u.onend = function () { if (box) box.classList.remove('is-on'); };
         sp.speak(u);
         if (box) box.classList.add('is-on');
@@ -833,25 +691,6 @@
       }
 
       var b = OW.Store.book(this.bookId);
-
-      // 分支正文：也允许铭文批注，铭文带 branchId 锚定到当前分支
-      var brBlock = pa.closest('.rd-branch-inline');
-      if (brBlock) {
-        var brId = brBlock.getAttribute('data-br') || null;
-        var brPara = parseInt(pa.getAttribute('data-p'), 10);
-        var brFull = pa.textContent || '';
-        var brS = offsetInP(pa, range.startContainer, range.startOffset);
-        if (brS < 0) return this.hidePop();
-        var brProbe = brFull.indexOf(txt, Math.max(0, brS - 4));
-        if (brProbe > -1) brS = brProbe;
-        else { brProbe = brFull.indexOf(txt); if (brProbe > -1) brS = brProbe; }
-        var brE = brS + txt.length;
-        if (brFull.slice(brS, brE) !== txt) return this.hidePop();
-        this.sel = { ch: b.page || 0, para: brPara, s: brS, e: brE, quote: txt, branchId: brId };
-        this.showPop(range);
-        return;
-      }
-
       var ch = b.page || 0, para = parseInt(pa.getAttribute('data-p'), 10);
       var full = (b.chapters[ch] || {}).paras[para] || '';
       var s = offsetInP(pa, range.startContainer, range.startOffset);
@@ -881,15 +720,8 @@
       pop.innerHTML = OW.KINDS.map(function (k) {
         return '<button data-k="' + k.id + '" title="' + k.name + '：' + k.gloss + '">' +
           '<i class="sw" style="background:' + k.color + '"></i>' + k.name + '</button>';
-      }).join('') +
-        '<span class="sel-sep"></span>' +
-        '<button class="sel-ow" data-ow ' +
-          'title="从这里开始，进入剧情覆写工作台">' +
-          '<svg class="spark" viewBox="0 0 12 12" aria-hidden="true">' +
-            '<path d="M6 0.5l1.4 3.2 3.1.3-2.4 2.1.7 3-2.8-1.6-2.8 1.6.7-3-2.4-2.1 3.1-.3z"/>' +
-          '</svg>' +
-          '从这里改写' +
-        '</button>';
+      }).join('') + '<span class="sel-divider"></span><button class="sel-rewrite" data-rewrite>' +
+        SVG.icon('star', 13) + ' 从这里改写</button>';
       pop.classList.add('is-on');
 
       var r = range.getBoundingClientRect();
@@ -901,12 +733,13 @@
       pop.style.top = Math.round(y) + 'px';
 
       pop.onclick = function (e) {
-        if (e.target.closest('button[data-ow]')) {
-          var s = self.sel; if (!s) return;
+        var rw = e.target.closest('[data-rewrite]');
+        if (rw && self.sel) {
+          var pick = self.sel;
           self.hidePop();
-          if (w.getSelection) { try { w.getSelection().removeAllRanges(); } catch (_) {} }
-          if (OW.Ow && OW.Ow.openFromSelection) OW.Ow.openFromSelection(self.bookId, s);
-          return;
+          var selection = w.getSelection(); if (selection) selection.removeAllRanges();
+          return OW.App.openRewrite({ bookId: self.bookId, chapterIndex: pick.ch,
+            paragraphIndex: pick.para, sourceType: 'selection', quote: pick.quote });
         }
         var b = e.target.closest('button[data-k]');
         if (!b) return;
@@ -922,18 +755,9 @@
     renderAside: function (b) {
       var aside = D.getElementById('rdAside');
       if (!this.asideOn) { aside.innerHTML = ''; return; }
-      var self = this;
+      var self = this, pr = OW.Store.progress(b.id);
 
-      // 按当前分支隔离铭文：原作 branchId=null，各分支只显示自己的
-      var curBranch = (OW.OwStore && OW.OwStore.currentLine(b).branchId) || null;
-      var all = b.inscriptions.filter(function (i) { return (i.branchId || null) === curBranch; });
-      var litMap = {};
-      OW.KINDS.forEach(function (k) {
-        litMap[k.id] = all.filter(function (i) { return i.kind === k.id; }).length;
-      });
-      var litCount = OW.KINDS.filter(function (k) { return litMap[k.id] > 0; }).length;
-
-      var list = all.slice().sort(function (a, c) { return c.at - a.at; });
+      var list = b.inscriptions.slice().sort(function (a, c) { return c.at - a.at; });
       if (this.filter !== 'all') {
         list = list.filter(function (i) { return i.kind === self.filter; });
       }
@@ -951,7 +775,7 @@
             '<button class="btn btn--icon" id="rdAsideX" aria-label="收起铭文面板">' +
               SVG.icon('close', 16) + '</button>' +
           '</div>' +
-          '<div class="sub">共 ' + all.length + ' 枚 · 四类已点亮 ' + litCount +
+          '<div class="sub">共 ' + b.inscriptions.length + ' 枚 · 四类已点亮 ' + pr.lit +
             '/4 · 在正文中选一句话即可写下新的一枚</div>' +
         '</div>' +
         '<div class="ins-filter" id="rdFilter">' +
@@ -960,7 +784,7 @@
             return '<button class="chip" data-f="' + k.id + '" aria-pressed="' +
               (self.filter === k.id) + '" title="' + k.gloss + '">' +
               '<i class="sw" style="background:' + k.color + '"></i>' + k.name +
-              ' ' + (litMap[k.id] || 0) + '</button>';
+              ' ' + (pr.kinds[k.id] || 0) + '</button>';
           }).join('') +
         '</div>' +
         '<div class="ins-gallery' + (selected ? ' has-feature' : '') + '" id="rdInsList">' +
@@ -982,7 +806,7 @@
               '<div class="ins-deck-hint">悬停展开 · 点击抽取</div>' +
             '</section>' :
             '<div class="empty">' + SVG.icon('ins', 40) + '<div>' +
-              (all.length ? '这一类还没有铭文。' : OW.COPY.noIns) +
+              (b.inscriptions.length ? '这一类还没有铭文。' : OW.COPY.noIns) +
             '</div></div>') +
         '</div>' +
         '<div class="ins-editor" id="rdEditor"></div>';
@@ -1005,13 +829,16 @@
         if (e.target.closest('[data-collapse]')) {
           self.selectedIns = null;
           self.renderAside(b);
-        } else if (e.target.closest('[data-ow]')) {
-          if (OW.Ow && OW.Ow.openFromInscription) OW.Ow.openFromInscription(self.bookId, id);
         } else if (e.target.closest('[data-edit]')) {
           var ins = find(b, id);
           if (ins) self.openEditor('edit', ins);
         } else if (e.target.closest('[data-del]')) {
           self.delIns(id);
+        } else if (e.target.closest('[data-develop]')) {
+          var cont = find(b, id);
+          if (cont) OW.App.openRewrite({ bookId: b.id, chapterIndex: cont.ch,
+            paragraphIndex: cont.para, sourceType: 'inscription', quote: cont.quote,
+            inscriptionId: cont.id, intent: cont.body, tendencies: ['角色选择'] });
         } else {
           self.selectedIns = self.selectedIns === id ? null : id;
           self.renderAside(b);
@@ -1087,11 +914,8 @@
         '<div class="quote">「' + SVG.esc(i.quote) + '」</div>' +
         '<div class="body">' + SVG.esc(i.body) + '</div>' +
         '<div class="acts">' +
-          (i.kind === 'cont'
-            ? '<button class="btn btn--sm btn--overwrite-inline" data-ow ' +
-                'title="把这条想法作为改编意图，进入工作台">' +
-                SVG.icon('star', 13) + ' 将这条想法发展为剧情</button>'
-            : '') +
+          (i.kind === 'cont' ? '<button class="btn btn--sm rd-rewrite-btn" data-develop>' +
+            SVG.icon('star', 13) + ' 发展为剧情</button>' : '') +
           '<button class="btn btn--sm btn--ghost" data-edit>' + SVG.icon('edit', 13) + ' 编辑</button>' +
           '<button class="btn btn--sm btn--ghost btn--danger" data-del>' +
             SVG.icon('trash', 13) + ' 删除</button>' +
@@ -1131,7 +955,7 @@
         this.editing = {
           mode: 'new', kind: data.kind,
           ch: this.sel.ch, para: this.sel.para, s: this.sel.s, e: this.sel.e,
-          quote: this.sel.quote, body: '', branchId: this.sel.branchId || null
+          quote: this.sel.quote, body: ''
         };
       } else {
         this.editing = {
@@ -1207,22 +1031,16 @@
 
       if (E.mode === 'edit') {
         OW.Store.updateIns(b.id, E.id, { kind: E.kind, body: E.body });
-        var edIns = find(b, E.id);
-        if (edIns && OW.Api && OW.Api.saveInscription) OW.Api.saveInscription(b.id, edIns);
         this.closeEditor(); this.render();
         return OW.toast('铭文已更新。');
       }
 
-      var newIns = OW.Store.addIns(b.id, {
-        ch: E.ch, para: E.para, s: E.s, e: E.e, quote: E.quote, kind: E.kind, body: E.body,
-        branchId: E.branchId || null
+      OW.Store.addIns(b.id, {
+        ch: E.ch, para: E.para, s: E.s, e: E.e, quote: E.quote, kind: E.kind, body: E.body
       });
-      if (OW.Api && OW.Api.saveInscription) OW.Api.saveInscription(b.id, newIns);
-      this.lastWrittenIns = newIns.id;
       var k = OW.kindOf(E.kind);
       this.closeEditor();
       this.render();
-      this.lastWrittenIns = null;
 
       /* 第一枚铭文：每本书首次保存触发一次约 2 秒轻量仪式（§5.5），
          刷新后不重复 —— 靠 firstInsDone 持久化 */
@@ -1245,7 +1063,6 @@
         ok: '确认删除', danger: true,
         onOk: function () {
           OW.Store.removeIns(b.id, id);
-          if (OW.Api && OW.Api.deleteInscription) OW.Api.deleteInscription(b.id, id);
           if (self.selectedIns === id) self.selectedIns = null;
           self.render();
           OW.toast('铭文已删除。');

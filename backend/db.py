@@ -48,9 +48,14 @@ def ensure_database(settings) -> None:
 
 def init_db(settings) -> Engine:
     """建库 + 建引擎 + 建表，返回引擎并绑定模块级 SessionLocal。"""
-    global _engine, _SessionLocal
     ensure_database(settings)
-    _engine = make_engine(settings.database_url)
+    return init_db_url(settings.database_url)
+
+
+def init_db_url(url: str) -> Engine:
+    """用显式数据库 URL 建表并绑定会话，供本地 SQLite 降级使用。"""
+    global _engine, _SessionLocal
+    _engine = make_engine(url)
     SQLModel.metadata.create_all(_engine)
     _SessionLocal = sessionmaker(bind=_engine, class_=Session, expire_on_commit=False)
     return _engine

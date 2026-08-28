@@ -19,6 +19,13 @@
   --ink-base:#090D18;
   --ink-raise:#0C1120;
   --ink-panel:#0E1526;
+  /* 带透明度的表面统一通过 RGB 通道引用，昼夜模式可整体换色。 */
+  --surface-deep-rgb:5 7 14;
+  --surface-base-rgb:9 13 24;
+  --surface-raise-rgb:12 17 32;
+  --surface-panel-rgb:14 21 38;
+  --surface-purple-rgb:36 23 53;
+  --surface-leather-rgb:34 27 23;
   /* 深色皮革：暖向而不是紫向。
      实测原因：#20172B / #2B1F38 这两档在色板里离暮紫比离深蔚蓝更近，
      而 .resume 一块就占屏幕 27.9%，于是书库整页被判成暮紫 31.8%
@@ -128,4 +135,38 @@
   --page-tx:#2A2013;
   --page-tx-soft:#5E4E35;
   --page-edge:rgba(122,88,50,.40);
+}
+
+/* 日间模式不仅切换阅读纸，也切换应用底色、面板和文字。
+   旧版只有 --page-* 会变化，导致书库和覆写页看起来始终是夜间。 */
+:root[data-night="0"]{
+  color-scheme:light;
+  --deep-blue:#E9DFC8;
+  --dusk-purple:#CBBFD0;
+  --ink-abyss:#CDBD98;
+  --ink-base:#EEE2C8;
+  --ink-raise:#F5EBD7;
+  --ink-panel:#FAF3E4;
+  --surface-deep-rgb:205 189 152;
+  --surface-base-rgb:238 226 200;
+  --surface-raise-rgb:245 235 215;
+  --surface-panel-rgb:250 243 228;
+  --surface-purple-rgb:203 191 208;
+  --surface-leather-rgb:224 205 170;
+  --leather-1:#E3D1AE;
+  --leather-2:#D9C39A;
+  --leather-3:#CFB483;
+  --tx-hi:#2B2115;
+  --tx-mid:rgba(43,33,21,.76);
+  --tx-low:rgba(43,33,21,.56);
+  --tx-faint:rgba(43,33,21,.34);
+  --accent-tx:#76591F;
+  --on-accent:#201508;
+  --ln-copper:rgba(122,88,50,.68);
+  --ln-copper-soft:rgba(122,88,50,.32);
+  --ln-gold:rgba(142,105,37,.58);
+  --ln-hair:rgba(43,33,21,.14);
+  --sh-card:0 18px 44px -24px rgba(68,49,25,.42);
+  --sh-lift:0 26px 60px -28px rgba(68,49,25,.48);
+  --sh-page:0 40px 90px -34px rgba(68,49,25,.46);
 }

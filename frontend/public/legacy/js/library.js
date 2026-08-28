@@ -26,10 +26,10 @@
             '<div class="lib-tools">' +
               '<div class="lib-me" id="libMe"></div>' +
               '<span class="rule-v"></span>' +
-              '<button class="btn btn--icon" id="libTheme" title="日夜切换" ' +
-                'aria-label="日夜切换"></button>' +
-              '<button class="btn btn--icon" id="libSet" title="全局设置 · AI 设置" ' +
-                'aria-label="全局设置">' + SVG.icon('gear') + '</button>' +
+              '<button class="btn btn--icon" id="libTheme" title="切换昼夜模式" ' +
+                'aria-label="切换昼夜模式"></button>' +
+              '<button class="btn btn--icon" id="libSet" title="打开全局设置与 AI 设置" ' +
+                'aria-label="打开全局设置与 AI 设置">' + SVG.icon('settings') + '</button>' +
             '</div>' +
           '</header>' +
 
@@ -40,6 +40,7 @@
               '<h3>示例藏书</h3><span class="line"></span>' +
               '<span class="n" id="libCount"></span>' +
             '</div>' +
+            '<p class="lib-locked-note">后两本是初赛版的世界观展示藏书，暂未放入正文，不存在隐藏的解锁操作。</p>' +
             '<div class="shelf" id="libShelf"></div>' +
           '</div>' +
 
@@ -111,22 +112,70 @@
       if (file.size > 4 * 1024 * 1024) {
         return OW.toast('文件过大（超过 4MB），初赛版暂不支持。', 'warn');
       }
-      if (!OW.Api || !OW.Api.importBook) return OW.toast('未连接到后端，无法导入。', 'warn');
-      OW.Api.importBook(file).then(function (data) {
-        var chapters = data.chapters || [];
-        var name = (data.filename || file.name).replace(/\.txt$/i, '').slice(0, 24) || '无名秘典';
+      var fr = new w.FileReader();
+      fr.onerror = function () { OW.toast(OW.COPY.txtBad, 'warn'); };
+      fr.onload = function () {
+        var raw = String(fr.result || '').replace(/\r\n/g, '\n').trim();
+        if (!raw) return OW.toast(OW.COPY.txtBad, 'warn');
+
+        var name = file.name.replace(/\.txt$/i, '').slice(0, 24) || '无名秘典';
+        var lines = raw.replace(/^\uFEFF/, '').split('\n');
+
+        /*
+         * 只把“独占一行的章节标题”当作分章点。
+         * 旧版按每 14 个自然段硬切，长篇小说会把 24 节错误拆成上百节。
+         */
+        function isChapterHeading(line) {
+          var t = String(line || '').trim();
+          if (!t || t.length > 80) return false;
+          return /^第\s*[〇零一二三四五六七八九十百千万两\d]+\s*[章节回卷篇部](?:\s*[·：:、.．\-—]\s*.*|\s+.*)?$/.test(t) ||
+            /^(?:chapter|section|part)\s+[0-9ivxlcdm]+(?:\s*[.:：\-—]\s*.*|\s+.*)?$/i.test(t) ||
+            /^\d{1,3}[、.．]\s*\S.{0,40}$/.test(t);
+        }
+
+        function paragraphize(chunk) {
+          var blocks = chunk.join('\n').trim().split(/\n\s*\n+/)
+            .map(function (s) { return s.replace(/\n+/g, ' ').trim(); })
+            .filter(function (s) { return s.length > 0; });
+          // 没有空行的 TXT 通常是一行一段，保留这种排版。
+          if (blocks.length <= 1) {
+            blocks = chunk.map(function (s) { return s.trim(); })
+              .filter(function (s) { return s.length > 0; });
+          }
+          return blocks;
+        }
+
+        var marks = [];
+        lines.forEach(function (line, index) {
+          if (isChapterHeading(line)) marks.push({ index: index, title: line.trim() });
+        });
+
+        var chapters = [];
+        if (marks.length) {
+          // 标题前若有作者信息或序言，单独保留为“卷首”，不吞进第一章。
+          var preface = paragraphize(lines.slice(0, marks[0].index));
+          if (preface.length) chapters.push({ title: '卷首', paras: preface });
+          marks.forEach(function (mark, index) {
+            var end = index + 1 < marks.length ? marks[index + 1].index : lines.length;
+            var body = paragraphize(lines.slice(mark.index + 1, end));
+            if (body.length) chapters.push({ title: mark.title, paras: body });
+          });
+        } else {
+          // 找不到可靠章节标题时宁可保留成一章，也不再凭段落数乱切。
+          var body = paragraphize(lines);
+          if (body.length) chapters.push({ title: '正文', paras: body });
+        }
+        if (!chapters.length) return OW.toast(OW.COPY.txtBad, 'warn');
         OW.Store.addBook({
-          id: data.work_id || ('u' + Date.now()),
-          sample: false, locked: false,
+          id: 'u' + Date.now(), sample: false, locked: false,
           title: name, author: '导入·佚名', sub: '由你导入',
           hue: chapters.length % 3, chapters: chapters, page: 0,
           inscriptions: [], bookmarks: [], finale: '', signed: null, firstInsDone: false
         });
         self.render();
         OW.toast('《' + name + '》已入库，共 ' + chapters.length + ' 节。');
-      }).catch(function (err) {
-        OW.toast(err.message || OW.COPY.txtBad, 'warn');
-      });
+      };
+      fr.readAsText(file, 'utf-8');
     },
 
     /* ---------- 渲染 ---------- */
@@ -144,6 +193,8 @@
       var themeBtn = D.getElementById('libTheme');
       themeBtn.innerHTML = SVG.icon(st.night ? 'moon' : 'sun');
       themeBtn.classList.toggle('is-on', !st.night);
+      themeBtn.title = st.night ? '切换到日间模式' : '切换到夜间模式';
+      themeBtn.setAttribute('aria-label', themeBtn.title);
 
       /* 继续阅读：首屏突出（§5.2）*/
       var pick = null;
@@ -194,7 +245,7 @@
             if (e.target.closest('[data-del]')) return;   // 删除按钮自己处理
             var b = OW.Store.book(id);
             if (!b) return;
-            if (b.locked) return OW.toast(OW.COPY.locked, 'warn');
+            if (b.locked) return OW.toast(b.lockedHint || OW.COPY.locked, 'warn');
             if (card.__jump) return;                      // 双击保护
             card.__jump = true;
             // 留 280ms 播完符文法阵，再进入阅读器；避免动画残留到下一页。
@@ -268,7 +319,7 @@
         '<div class="bcard-cover">' + SVG.cover(b) +
           (b.locked ? '<div class="bcard-lock">' + SVG.icon('lock', 30) + '</div>' : '') +
           '<div class="bcard-badge">' +
-            (b.locked ? '<span class="tag tag--locked">尚未解封</span>'
+            (b.locked ? '<span class="tag tag--locked">初赛版暂未开放</span>'
              : b.signed ? '<span class="tag tag--gold"><i class="dot"></i>已契名</span>'
              : pr.pct > 0 ? '<span class="tag tag--teal"><i class="dot"></i>覆写中</span>'
              : '<span class="tag">未启封</span>') +
@@ -279,7 +330,7 @@
           '<h4>' + SVG.esc(b.title) + '</h4>' +
           '<div class="by">' + SVG.esc(b.author) + ' 著</div>' +
           '<div class="ver">' +
-            (b.signed ? OW.Store.versionLabel(b) : (b.locked ? '待解封' : '尚无覆写版本')) +
+            (b.signed ? OW.Store.versionLabel(b) : (b.locked ? '世界观展示藏书 · 无需解锁' : '尚无覆写版本')) +
           '</div>' +
           (b.locked ? '' :
             '<div class="bar"><i style="width:' + pr.pct + '%"></i></div>' +
@@ -331,7 +382,9 @@
 
             '<section class="drawer-sec">' +
               '<div class="hd">AI 设置</div>' +
-              '<div class="ai-note">' + OW.COPY.aiNo + '</div>' +
+              '<div class="field"><label for="setBase">接口地址</label>' +
+                '<input class="input" id="setBase" autocomplete="off" placeholder="https://api.deepseek.com" value="' +
+                  SVG.esc(st.ai.baseUrl || '') + '"></div>' +
               '<div class="field">' +
                 '<label for="setKey">接口密钥</label>' +
                 '<div class="key-row">' +
@@ -343,10 +396,24 @@
                   '密钥只存在你自己的浏览器里，不会写进项目、也不会上传。录屏时请保持掩码状态。' +
                 '</div>' +
               '</div>' +
+              '<div class="key-row">' +
+                '<div class="field grow"><label for="setModel">模型名称</label>' +
+                  '<input class="input" id="setModel" autocomplete="off" value="' +
+                    SVG.esc(st.ai.model || 'deepseek-chat') + '"></div>' +
+                '<div class="field" style="width:110px"><label for="setTimeout">超时（秒）</label>' +
+                  '<input class="input" id="setTimeout" type="number" min="10" max="120" value="' +
+                    (st.ai.timeout || 45) + '"></div>' +
+              '</div>' +
               '<div class="opt-row">' +
-                '<div><div class="lb">魔法助手</div>' +
-                  '<div class="ds">初赛版仅做预设演示，核心阅读与铭文不依赖它。</div></div>' +
-                '<span class="tag">未连接</span>' +
+                '<div><div class="lb">连接状态</div><div class="ds" id="setAiMessage">' +
+                  (OW.App.demo ? '演示模式已就绪，无需真实密钥。' : (st.ai.connected ? '上次连接测试成功。' : '尚未测试连接。')) +
+                  '</div></div><span class="tag" id="setAiStatus">' +
+                  (OW.App.demo ? '演示就绪' : (st.ai.connected ? '已连接' : '未连接')) + '</span>' +
+              '</div>' +
+              '<div class="row" style="justify-content:flex-end">' +
+                '<button class="btn btn--sm btn--ghost" id="setAiClear">清除密钥</button>' +
+                '<button class="btn btn--sm" id="setAiTest">测试连接</button>' +
+                '<button class="btn btn--sm btn--primary" id="setAiSave">保存设置</button>' +
               '</div>' +
             '</section>' +
 
@@ -404,8 +471,44 @@
         key.type = show ? 'text' : 'password';
         this.textContent = show ? '掩码' : '显示';
       });
-      key.addEventListener('change', function () {
-        var st2 = OW.Store.get(); st2.ai.key = key.value; OW.Store.commit();
+      function aiDraft() {
+        return {
+          baseUrl: wrap.querySelector('#setBase').value.trim(),
+          key: key.value.trim(),
+          model: wrap.querySelector('#setModel').value.trim(),
+          timeout: Math.max(10, Math.min(120, parseInt(wrap.querySelector('#setTimeout').value, 10) || 45))
+        };
+      }
+      wrap.querySelector('#setAiSave').addEventListener('click', function () {
+        var d = aiDraft();
+        if (!/^https?:\/\//i.test(d.baseUrl) || !d.model) return OW.toast('请填写完整的接口地址和模型名称。', 'warn');
+        var ai = OW.Store.get().ai;
+        ai.baseUrl = d.baseUrl; ai.key = d.key; ai.model = d.model; ai.timeout = d.timeout;
+        OW.Store.commit(); OW.toast('AI 设置已保存在本机浏览器。');
+      });
+      wrap.querySelector('#setAiClear').addEventListener('click', function () {
+        key.value = '';
+        var ai = OW.Store.get().ai; ai.key = ''; ai.connected = false; ai.checkedAt = null;
+        OW.Store.commit();
+        wrap.querySelector('#setAiStatus').textContent = OW.App.demo ? '演示就绪' : '未连接';
+        wrap.querySelector('#setAiMessage').textContent = '密钥已从本机浏览器中清除。';
+        OW.toast('接口密钥已清除。');
+      });
+      wrap.querySelector('#setAiTest').addEventListener('click', function () {
+        var btn = this, d = aiDraft(), msg = wrap.querySelector('#setAiMessage');
+        if (!d.key) return OW.toast('请先填写接口密钥再测试。', 'warn');
+        btn.disabled = true; btn.textContent = '测试中…'; msg.textContent = '正在连接模型，请稍候。';
+        OW.Api.testConnection(d).then(function () {
+          var ai = OW.Store.get().ai;
+          ai.baseUrl = d.baseUrl; ai.key = d.key; ai.model = d.model; ai.timeout = d.timeout;
+          ai.connected = true; ai.checkedAt = Date.now(); OW.Store.commit();
+          wrap.querySelector('#setAiStatus').textContent = '已连接'; msg.textContent = '连接成功，可以进行真实剧情覆写。';
+          OW.toast('AI 连接测试成功。');
+        }).catch(function (err) {
+          OW.Store.get().ai.connected = false; OW.Store.commit();
+          wrap.querySelector('#setAiStatus').textContent = '连接失败'; msg.textContent = err.message;
+          OW.toast(err.message, 'warn');
+        }).finally(function () { btn.disabled = false; btn.textContent = '测试连接'; });
       });
 
       wrap.querySelector('#setRestore').addEventListener('click', function () {

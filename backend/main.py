@@ -4,12 +4,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
-from backend.db import Book, get_session, init_db
+from backend.db import Book, get_session, init_db, init_db_url
 from backend.library import (
     BookSaveRequest,
     BranchSaveRequest,
@@ -24,7 +24,7 @@ from backend.library import (
     upsert_inscription,
 )
 from literary_agent.chapters import split_chapters
-from literary_agent.config import load_settings
+from literary_agent.config import PROJECT_ROOT, load_settings
 from literary_agent.graph import run_pipeline
 from literary_agent.mock_llm import MockLLM
 from literary_agent.overwrite import run_overwrite, run_overwrite_chapter
@@ -49,6 +49,9 @@ try:
     init_db(load_settings())
 except Exception as exc:  # noqa: BLE001
     print(f"[警告] 数据库初始化失败（MySQL 未就绪或密码未配置）：{exc}", file=sys.stderr)
+    fallback_db = PROJECT_ROOT / "overwriting.sqlite3"
+    init_db_url(f"sqlite:///{fallback_db}")
+    print(f"[提示] 已降级使用本地 SQLite：{fallback_db}", file=sys.stderr)
 
 
 class ImportResponse(BaseModel):
@@ -316,6 +319,56 @@ class OverwriteResponse(BaseModel):
     demo: bool = False
 
 
+class RewriteConnection(BaseModel):
+    """新版前端保存在浏览器中的 OpenAI 兼容连接参数。"""
+
+    model_config = ConfigDict(extra="ignore")
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-chat"
+    timeout: int = 45
+
+
+class RewriteGenerateRequest(BaseModel):
+    """ZIP 新版 rewrite.js 的请求结构。"""
+
+    model_config = ConfigDict(extra="ignore")
+    book_id: str = ""
+    book_title: str = ""
+    author: str = ""
+    chapter_index: int = 0
+    chapter_title: str = ""
+    source_type: str = "chapter_end"
+    original_text: str = ""
+    context_before: str = ""
+    parent_branch_text: str = ""
+    intent: str = ""
+    tendencies: list[str] = Field(default_factory=list)
+    intensity: str = "medium"
+    must_preserve: str = ""
+    connection: RewriteConnection = Field(default_factory=RewriteConnection)
+
+
+class RewriteGenerateResponse(BaseModel):
+    """ZIP 新版 rewrite.js 直接消费的响应结构。"""
+
+    title: str = ""
+    content: str = ""
+    key_changes: list[str] = Field(default_factory=list)
+    characters: list[str] = Field(default_factory=list)
+    next_directions: list[str] = Field(default_factory=list)
+    difference: str = ""
+    conflicts: list[str] = Field(default_factory=list)
+    model: str = ""
+    is_demo: bool = False
+
+
+class AiTestRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-chat"
+    timeout: int = 45
+
+
 class OverwriteResultSchema(BaseModel):
     """DeepSeek 返回的 JSON 结构（后端内部使用；字段名允许 snake_case 别名）。"""
 
@@ -435,6 +488,108 @@ def overwrite(req: OverwriteRequest) -> OverwriteResponse:
         strength=req.strength or "medium",
         demo=use_demo,
     )
+
+
+@app.post("/api/v1/rewrite/generate", response_model=RewriteGenerateResponse)
+def generate_rewrite_v1(
+    req: RewriteGenerateRequest,
+    x_ai_key: str = Header(default="", alias="X-AI-Key"),
+) -> RewriteGenerateResponse:
+    """兼容 ZIP 新版前端，并复用仓库现有 LangGraph 覆写流水线。"""
+    settings = load_settings()
+    if x_ai_key.strip():
+        settings.api_key = x_ai_key.strip()
+        # A browser-supplied key opts into the browser's matching provider
+        # settings.  Without it, keep the server-side provider configuration;
+        # otherwise the frontend defaults could accidentally send a server key
+        # to a different OpenAI-compatible endpoint.
+        if req.connection.base_url.strip():
+            settings.base_url = req.connection.base_url.strip().rstrip("/")
+        if req.connection.model.strip():
+            settings.model = req.connection.model.strip()
+
+    mapped = OverwriteRequest(
+        book=OverwriteBook(id=req.book_id, title=req.book_title, author=req.author),
+        origin=OverwriteOrigin(
+            ch=req.chapter_index,
+            ch_title=req.chapter_title,
+            quote=req.original_text,
+            mode=req.source_type,
+        ),
+        context="\n\n".join(
+            part for part in (req.context_before, req.parent_branch_text) if part.strip()
+        ),
+        prompt=req.intent,
+        tones=req.tendencies,
+        strength=req.intensity,
+        constraints=req.must_preserve,
+    )
+
+    use_demo = not settings.api_key
+    if use_demo:
+        stub = _overwrite_stub(mapped)
+        return RewriteGenerateResponse(
+            title=stub.title,
+            content=stub.narrative,
+            key_changes=stub.changes,
+            next_directions=stub.nextDirections,
+            conflicts=stub.conflicts,
+            model="demo-rewrite",
+            is_demo=True,
+        )
+
+    try:
+        from literary_agent.llm import build_llm
+
+        llm = build_llm(settings)
+        checkpointer = _make_checkpointer()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"AI 配置无效：{exc}") from exc
+
+    try:
+        final = run_overwrite(
+            mapped.model_dump(), settings=settings, llm=llm, checkpointer=checkpointer
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"剧情推演失败：{exc}") from exc
+
+    result = final.get("result") or {}
+    content = result.get("正文", "")
+    title = result.get("标题") or f"分支 · {(req.intent or '').strip()[:12] or '未命名'}"
+    return RewriteGenerateResponse(
+        title=title,
+        content=content,
+        key_changes=result.get("关键变化", []),
+        characters=result.get("涉及人物", []),
+        next_directions=result.get("后续方向", []),
+        difference=result.get("与原作差异", ""),
+        conflicts=result.get("设定冲突", []),
+        model="demo-rewrite" if use_demo else settings.model,
+        is_demo=use_demo,
+    )
+
+
+@app.post("/api/v1/ai/test")
+def test_ai_v1(
+    req: AiTestRequest,
+    x_ai_key: str = Header(default="", alias="X-AI-Key"),
+) -> dict:
+    """验证新版前端填写的 OpenAI 兼容模型连接，不保存或记录密钥。"""
+    if not x_ai_key.strip():
+        raise HTTPException(status_code=400, detail="请先填写接口密钥")
+
+    settings = load_settings()
+    settings.api_key = x_ai_key.strip()
+    settings.base_url = req.base_url.strip().rstrip("/")
+    settings.model = req.model.strip()
+    try:
+        from literary_agent.llm import build_llm
+
+        llm = build_llm(settings)
+        llm.invoke("请只回复一个 JSON 对象：{\"ok\": true}")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"AI 连接失败：{exc}") from exc
+    return {"ok": True, "model": settings.model}
 
 
 # ---------------------------------------------------------------------------
