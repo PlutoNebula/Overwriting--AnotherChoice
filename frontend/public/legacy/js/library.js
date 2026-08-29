@@ -133,16 +133,51 @@
             /^\d{1,3}[、.．]\s*\S.{0,40}$/.test(t);
         }
 
+        function joinWrappedLines(rows) {
+          return rows.reduce(function (text, row) {
+            var line = String(row || '').trim();
+            if (!line) return text;
+            if (!text) return line;
+            // 中文排版换行不能变成空格；英文单词之间仍需保留一个空格。
+            var left = text.charAt(text.length - 1);
+            var right = line.charAt(0);
+            var gap = /[A-Za-z0-9]/.test(left) && /[A-Za-z0-9]/.test(right) ? ' ' : '';
+            return text + gap + line;
+          }, '');
+        }
+
         function paragraphize(chunk) {
-          var blocks = chunk.join('\n').trim().split(/\n\s*\n+/)
-            .map(function (s) { return s.replace(/\n+/g, ' ').trim(); })
-            .filter(function (s) { return s.length > 0; });
-          // 没有空行的 TXT 通常是一行一段，保留这种排版。
-          if (blocks.length <= 1) {
-            blocks = chunk.map(function (s) { return s.trim(); })
-              .filter(function (s) { return s.length > 0; });
+          var rows = chunk.map(function (line) { return String(line || ''); });
+          var nonEmpty = rows.filter(function (line) { return line.trim().length > 0; });
+          var hasBlankLine = rows.some(function (line) { return line.trim().length === 0; });
+          var indentedCount = nonEmpty.filter(function (line) {
+            return /^(?:[ \t]{2,}|\u3000)/.test(line);
+          }).length;
+          var groups = [];
+          var current = [];
+
+          function flush() {
+            if (!current.length) return;
+            var paragraph = joinWrappedLines(current);
+            if (paragraph) groups.push(paragraph);
+            current = [];
           }
-          return blocks;
+
+          rows.forEach(function (rawLine) {
+            var line = rawLine.trim();
+            if (!line) { flush(); return; }
+
+            // 没有空行时，两个以上的段首缩进可作为可靠的分段标记。
+            if (!hasBlankLine && indentedCount > 1 && current.length &&
+                /^(?:[ \t]{2,}|\u3000)/.test(rawLine)) flush();
+            current.push(line);
+
+            // 完全没有空行或缩进的 TXT，通常是一行一段；以句末标点兜底分段。
+            if (!hasBlankLine && indentedCount <= 1 &&
+                /[。！？!?…][”’』」》）】)]*$/.test(line)) flush();
+          });
+          flush();
+          return groups;
         }
 
         var marks = [];

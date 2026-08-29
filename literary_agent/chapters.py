@@ -7,8 +7,50 @@ CHAPTER_RE = re.compile(rf"^[ \t]*第[ \t]*{_NUM}+[ \t]*章[^\n]*", re.MULTILINE
 
 
 def _split_paras(text: str) -> list[str]:
-    blocks = re.split(r"\n[ \t]*\n", text.strip())
-    return [b.strip() for b in blocks if b.strip()]
+    """识别自然段，并去掉 TXT 为控制行宽而插入的软换行。"""
+    # 只去掉文件首尾的换行，保留首行段首缩进用于判断自然段边界。
+    rows = text.strip("\n").split("\n")
+    non_empty = [line for line in rows if line.strip()]
+    has_blank_line = any(not line.strip() for line in rows)
+    indented_count = sum(bool(re.match(r"^(?:[ \t]{2,}|\u3000)", line)) for line in non_empty)
+    groups: list[list[str]] = []
+    current: list[str] = []
+
+    def flush() -> None:
+        if current:
+            groups.append(current.copy())
+            current.clear()
+
+    for raw_line in rows:
+        line = raw_line.strip()
+        if not line:
+            flush()
+            continue
+        if (
+            not has_blank_line
+            and indented_count > 1
+            and current
+            and re.match(r"^(?:[ \t]{2,}|\u3000)", raw_line)
+        ):
+            flush()
+        current.append(line)
+        if (
+            not has_blank_line
+            and indented_count <= 1
+            and re.search(r"[。！？!?…][”’』」》）】)]*$", line)
+        ):
+            flush()
+    flush()
+
+    def join_wrapped_lines(lines: list[str]) -> str:
+        result = ""
+        for line in lines:
+            if result and result[-1].isascii() and result[-1].isalnum() and line[0].isascii() and line[0].isalnum():
+                result += " "
+            result += line
+        return result
+
+    return [join_wrapped_lines(group) for group in groups]
 
 
 def split_chapters(text: str) -> list[dict]:

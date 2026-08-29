@@ -84,7 +84,22 @@
   var subs = [];
   var S = null;
 
+  function repairImportedCjkSpacing(text) {
+    // 旧版导入器会把中文软换行存成普通空格；两端对齐会把它们拉成明显的大洞。
+    return String(text == null ? '' : text).replace(
+      /([\u3400-\u9fff\u3000-\u303f\uff01-\uff65])[ \t]+(?=[\u3400-\u9fff\u3000-\u303f\uff01-\uff65])/g,
+      '$1'
+    );
+  }
+
   function normalizeBook(b) {
+    // 仅修复用户导入的旧书；示例书和 AI 分支正文保持原样。
+    if (!b.sample && Array.isArray(b.chapters)) {
+      b.chapters.forEach(function (chapter) {
+        if (!Array.isArray(chapter.paras)) return;
+        chapter.paras = chapter.paras.map(repairImportedCjkSpacing);
+      });
+    }
     if (!Array.isArray(b.branches)) b.branches = [];
     if (!('activeBranchId' in b)) b.activeBranchId = b.currentBranch || null;
     if (!('finalVersionBranchId' in b)) b.finalVersionBranchId = null;
