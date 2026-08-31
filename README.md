@@ -1,82 +1,137 @@
-# 覆写：故事新编（OVERWRITING）
+# 覆写：故事新编
 
-西幻风格的沉浸式读书批注与 AI 剧情覆写应用。读者在原文上留下四类「铭文」和「读者终章」，可以从任意选中位置让 AI 改写后续剧情、生长出分支，最终契名生成署有原作者与读者名字的个人版本。
+> **OVERWRITING: ANOTHER CHOICE**<br>
+> 一款融合沉浸式阅读、互动批注与 AI 剧情推演的故事新编应用。
 
-前端以浏览器 localStorage 为主态，后端（FastAPI + MySQL，未配置时自动降级 SQLite）作为按用户隔离的持久化副本。
+“覆写”希望让读者不再只是故事的旁观者。读者可以在原文旁留下自己的回应，从任意情节节点推演另一种可能，最终生成带有个人阅读痕迹与署名的专属版本。
 
----
+## 产品展示
 
-## 功能
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/images/demo-opening.jpg" alt="羽毛笔与魔法书开场动画">
+      <br><strong>沉浸式开场</strong><br>羽毛笔书写、魔法书展开，建立完整的阅读仪式感。
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/images/demo-reading.jpg" alt="阅读器与铭文批注界面">
+      <br><strong>阅读与铭文</strong><br>在原文中选择文字，留下与内容位置绑定的个性化批注。
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/images/demo-rewrite.jpg" alt="AI 剧情覆写工作台">
+      <br><strong>AI 剧情覆写</strong><br>设定改写意图与约束，让故事从指定节点生长出新的分支。
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/images/demo-finale.jpg" alt="个人秘典契名界面">
+      <br><strong>契名与个人秘典</strong><br>汇总阅读、批注与改写成果，完成属于读者自己的版本。
+    </td>
+  </tr>
+</table>
 
-- **开场动画**：羽毛笔绘制 / 书页放大入场（React，`?autoplay=1` 自动播放）。
-- **首次署名 → 秘典书库**：内置三本示例藏书。
-- **阅读器**：章节/段落、翻页、朗读（TTS）、选字批注、分支切换。
-- **四类铭文**：回响（共鸣）/ 诘问（质疑）/ 星链（联结）/ 续章（续写），锚定原文选区。
-- **读者终章**：≥50 字的读后回应，与四类铭文共同构成契名条件。
-- **契名仪式 → 个人秘典**：署上读者名字的版本。
-- **AI 剧情覆写**：从章节结尾 / 选中原文 / 续章铭文 / 已有分支继续改写，生成平行分支。
-- **分支管理**：分支树切换、删除；删除父分支时子分支提升（reparent，非级联）。
-- **分用户存储**：多用户可各自独立持有同名书（如内置示例书），内容按 `user_id` 隔离。
-- **原文拆章**：导入 TXT 时按「第X章」正则自动拆分为章节入库。
+以上图片截取自项目宣传视频。
 
----
+## 核心理念
 
-## 技术栈
+传统阅读通常在故事结尾停止，而“覆写”把阅读理解、情感回应和故事创作连接成一条连续体验：
 
-| 层 | 技术 |
-|----|------|
-| 后端 | FastAPI · SQLModel · MySQL 8.0 / SQLite 降级 · LangGraph + DeepSeek（AI 覆写） |
-| 前端 | Vite · 原生 JavaScript（无框架）· React（仅开场动画层） |
-| 运行时 | Python 3.12 · uv · Node.js |
+1. **读原作**：导入自己的 TXT 文本，或阅读内置示例藏书。
+2. **留铭文**：针对具体原文留下“回响、诘问、星链、续章”四类回应。
+3. **开分支**：从选中文字、章节结尾、续章铭文或已有分支继续推演。
+4. **写终章**：以读者身份完成一篇属于自己的阅读回应。
+5. **完成契名**：将原作、铭文、分支和读者终章汇聚为个人秘典。
 
----
+## 核心功能
 
-## 目录结构
+- **沉浸式开场动画**：羽毛笔绘制、书页显现与魔法书放大入场。
+- **秘典书库**：内置示例书籍，支持导入 UTF-8 编码的 TXT 文本。
+- **智能拆章与分段**：识别“第 X 章”等标题，并兼容空行、段首缩进和排版软换行。
+- **沉浸式阅读器**：支持章节翻页、目录、书签、搜索、字号与行距调节、夜间模式和语音朗读。
+- **四类铭文**：
+  - 回响：记录共鸣与感受；
+  - 诘问：提出疑问或不同意见；
+  - 星链：联结其他作品、经历或人物；
+  - 续章：从原文继续创作。
+- **AI 剧情覆写**：输入改写目标、倾向、强度和必须保留的内容，由 AI 生成新的故事走向。
+- **分支管理**：保存、切换、继续生长或删除剧情分支，原文始终保持不变。
+- **读者终章与契名仪式**：汇总个人阅读成果，生成署有原作者与读者名字的个人版本。
+- **本地优先存储**：前端以浏览器 localStorage 为主存储；后端提供按用户隔离的持久化副本。
+- **演示模式**：无需 AI Key 即可体验完整的预设改写流程。
 
-```
+## 团队成员
+
+| 成员 | 负责内容 |
+|---|---|
+| **张梓涵** | 项目总规划、部分前端开发 |
+| **李文泽** | 后端开发 |
+| **房子晴** | 前端开发 |
+| **蔡欣宇** | 宣传视频、项目 PPT |
+
+## 技术架构
+
+| 层级 | 主要技术 | 职责 |
+|---|---|---|
+| 前端 | Vite、React、原生 JavaScript、CSS | 开场动画、书库、阅读器、铭文、覆写工作台与契名流程 |
+| 后端 | FastAPI、SQLModel | 文件导入、书籍/分支/铭文接口、AI 覆写请求 |
+| AI 流水线 | LangGraph、OpenAI 兼容接口、DeepSeek | 剧情分析、改写、审查与分支生成 |
+| 数据库 | MySQL 8.0；未配置时降级 SQLite | 保存书籍、章节、段落、铭文和剧情分支 |
+| 本地状态 | localStorage | 保存当前浏览器中的阅读进度和交互状态 |
+
+## 项目结构
+
+```text
 backend/
-  main.py          # FastAPI 路由与接口
-  db.py            # SQLModel 模型 + engine/session + 建库建表
-  library.py       # 业务持久化函数（upsert / delete / list / reparent）
+  main.py                 # FastAPI 路由与接口
+  db.py                   # 数据模型、数据库连接与建表
+  library.py              # 书籍、分支和铭文持久化逻辑
+
 literary_agent/
-  chapters.py      # 按「第X章」正则拆章 split_chapters
-  overwrite.py     # 剧情覆写流水线（classify → 改世界书 → 改写 → review）
-  config.py        # 配置（DeepSeek / MySQL / 路径）
-  …                # LangGraph 解读流水线（load/chunk/analyze/assemble/review/write）
+  chapters.py             # TXT 拆章与自然段识别
+  overwrite.py            # AI 剧情覆写流水线
+  config.py               # AI、数据库与路径配置
+
 frontend/
-  public/legacy/js/   # 原生 JS：app/library/reader/overwrite/finale/ceremony/store/data/…
-  public/legacy/css/  # 样式
-  src/                # React 开场动画（IntroScene）
-inputs/            # 导入的原文 txt
-works/             # 解读产物（旧流水线落盘目录）
+  public/legacy/js/       # 书库、阅读器、覆写、契名等交互
+  public/legacy/css/      # 页面样式
+  src/                    # React 开场动画
+
+docs/images/              # README 产品展示图片
+inputs/                   # 导入的原文
+tests/                    # 自动化测试
 ```
 
----
+## 本地运行
 
-## 快速开始
+### 环境要求
 
-### 1. 环境准备
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/)
+- Node.js
+- MySQL 8.0（可选；未配置时使用 SQLite）
 
-- Python 3.12（用 `uv` 管理依赖）
-- MySQL 8.0（可选；未配置时使用项目根目录的本地 SQLite）
-- Node.js（前端）
-
-### 2. 后端
+### 1. 克隆项目
 
 ```bash
-# 复制并编辑 .env（填 DeepSeek Key 与 MySQL 密码）
-cp .env.example .env
+git clone https://github.com/PlutoNebula/Overwriting--AnotherChoice.git
+cd Overwriting--AnotherChoice
+```
 
-# 安装依赖
+### 2. 启动后端
+
+```bash
+# Windows PowerShell
+Copy-Item .env.example .env
+
 uv sync
-
-# 启动（自动建库 overwriting 并建表）
 uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-后端启动后会优先执行 `CREATE DATABASE IF NOT EXISTS overwriting` 并 `create_all` 建表。MySQL 未就绪或密码未配置时自动改用项目根目录的 `overwriting.sqlite3`，书籍、铭文和分支接口仍可正常使用。
+后端接口文档：<http://127.0.0.1:8000/docs>
 
-### 3. 前端
+如果没有配置 MySQL，应用会自动在项目目录中使用 SQLite，书籍、分支和铭文接口仍可正常运行。
+
+### 3. 启动前端
 
 ```bash
 cd frontend
@@ -84,91 +139,52 @@ npm install
 npm run dev
 ```
 
-打开终端提示的本地地址（默认 `http://localhost:5173`）。前端通过 `frontend/public/legacy/js/api.js` 中的 `OW.Api` 调用后端（默认 `http://127.0.0.1:8000`），可用 `window.OW_API_BASE` 或 `<html data-api>` 覆盖。
+浏览器打开：<http://localhost:5173>
 
----
+演示模式：
 
-## 配置项（`.env`）
+```text
+http://localhost:5173/?demo=1&autoplay=1
+```
 
-| 配置 | 默认 | 说明 |
-|------|------|------|
-| `DEEPSEEK_API_KEY` | — | DeepSeek API Key |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | OpenAI 兼容端口 |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | 模型名 |
+## 环境配置
+
+复制 `.env.example` 为 `.env` 后按需填写：
+
+| 配置项 | 默认值 | 说明 |
+|---|---|---|
+| `DEEPSEEK_API_KEY` | 空 | DeepSeek 或其他 OpenAI 兼容服务的 API Key |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | AI 服务地址 |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | 模型名称 |
 | `MYSQL_HOST` | `127.0.0.1` | MySQL 地址 |
-| `MYSQL_PORT` | `3306` | 端口 |
-| `MYSQL_USER` | `root` | 用户 |
-| `MYSQL_PASSWORD` | — | 密码 |
-| `MYSQL_DATABASE` | `overwriting` | 库名 |
+| `MYSQL_PORT` | `3306` | MySQL 端口 |
+| `MYSQL_USER` | `root` | MySQL 用户名 |
+| `MYSQL_PASSWORD` | 空 | MySQL 密码 |
+| `MYSQL_DATABASE` | `overwriting` | 数据库名称 |
+
+> 请勿把包含真实 API Key 或数据库密码的 `.env` 提交到 GitHub。
+
+## 主要接口
+
+| 方法 | 地址 | 说明 |
+|---|---|---|
+| `GET` | `/health` | 后端健康检查 |
+| `POST` | `/api/import` | 导入 TXT/Markdown 并拆分章节 |
+| `PUT` | `/api/books/{book_id}` | 保存书籍及章节 |
+| `GET` | `/api/books/{book_id}` | 获取书籍 |
+| `PUT` | `/api/books/{book_id}/branches/{branch_id}` | 保存剧情分支 |
+| `PUT` | `/api/books/{book_id}/inscriptions/{ins_id}` | 保存铭文 |
+| `POST` | `/api/v1/rewrite/generate` | 生成 AI 剧情覆写结果 |
+| `POST` | `/api/v1/ai/test` | 测试 AI 模型连接 |
+
+## 数据说明
+
+- 浏览器 localStorage 是前端交互状态的主要存储。
+- 后端按照 `user_id` 隔离书籍数据。
+- MySQL 未就绪时自动使用 SQLite。
+- 删除父分支时，子分支会自动提升到上一级，不会被级联误删。
+- 删除整本书时，对应章节、段落、分支和铭文会一并清理。
 
 ---
 
-## 数据库设计
-
-库名 `overwriting`，UTF-8（utf8mb4）。六张表：
-
-### 核心约定
-
-- **分用户**：`book` 用代理主键 `pk`（自增）+ `(user_id, id)` 唯一约束，因此**多用户可以各自持有同一 `book_id`**（例如内置示例书 `b-lamp`）。
-- **分支/铭文归属**：`branch` / `inscription` 通过 `book_pk` 外键指向某本书，不再单独存 `user_id`（用户由所属书籍决定）。
-
-### 表结构
-
-| 表 | 关键字段 | 说明 |
-|----|---------|------|
-| `book` | `pk`(自增 PK) · `user_id` · `id`(book_id) · `title` · `author` · `sub` · `finale` | `(user_id, id)` 唯一；书 + 终章 |
-| `chapter` | `id`(自增 PK) · `book_pk`(FK→book.pk) · `idx` · `title` | `(book_pk, idx)` 唯一 |
-| `paragraph` | `id`(自增 PK) · `chapter_id`(FK→chapter.id) · `idx` · `text` | `(chapter_id, idx)` 唯一 |
-| `branch` | `id`(分支id PK) · `book_pk`(FK→book.pk) · `parent_id`(自引用, RESTRICT) · `no` · `title` · `narrative` · `status` · `origin_json` · `form_json` · `result_json` · `changes_json` · `conflicts_json` · `next_directions_json` · `demo` · `edited_by_reader` · `pending` · `at` | 分支（改写文）；`parent_id=null` 表示承接原作 |
-| `branch_chapter` | `id`(自增 PK) · `branch_id`(FK→branch.id) · `ch_idx` · `narrative` · `summary` · `title` · `demo` | `(branch_id, ch_idx)` 唯一；分支逐章正文 |
-| `inscription` | `id`(铭文id PK) · `book_pk`(FK→book.pk) · `branch_id`(可空) · `kind` · `ch` · `para` · `s` · `e` · `quote` · `body` · `at` | 铭文；`branch_id=null` 为原文铭文，否则为分支铭文 |
-
-### 关键语义
-
-- **删除父分支**：`delete_branch` 先把子分支的 `parent_id` 改指向被删分支的父分支，再删自身（`parent_id` 外键为 `RESTRICT`，防止误级联）。
-- **删除书**：先解除分支间 `parent_id` 引用，再删书，其余（章节/段落/分支/铭文）由外键 `CASCADE` 与 ORM `cascade_delete` 级联清理。
-
----
-
-## API 接口
-
-除 `/health` 外，书籍/分支/铭文接口都带 `?user_id=` 查询参数（默认 `guest`）做用户隔离。
-
-| Method | Path | 说明 |
-|--------|------|------|
-| GET | `/health` | 健康检查 |
-| POST | `/api/import?user_id=` | 上传 txt，按「第X章」拆章并入库，返回 `chapters` |
-| PUT | `/api/books/{book_id}?user_id=` | 保存/更新一本书（含 `finale` 与结构化 `chapters`） |
-| GET | `/api/books/{book_id}?user_id=` | 读取一本书 |
-| DELETE | `/api/books/{book_id}?user_id=` | 删除一本书（级联清分支/铭文/章节） |
-| PUT | `/api/books/{book_id}/branches/{branch_id}?user_id=` | 保存/更新一条分支 |
-| DELETE | `/api/books/{book_id}/branches/{branch_id}?user_id=` | 删除分支（reparent） |
-| GET | `/api/books/{book_id}/branches?user_id=` | 列出该书分支 |
-| PUT | `/api/books/{book_id}/inscriptions/{ins_id}?user_id=` | 保存/更新一条铭文 |
-| DELETE | `/api/books/{book_id}/inscriptions/{ins_id}?user_id=` | 删除一条铭文 |
-| GET | `/api/books/{book_id}/inscriptions?user_id=` | 列出该书铭文 |
-| POST | `/api/overwrite` | AI 覆写：起点章一次性推演（classify → 改世界书 → 改写 → review） |
-| POST | `/api/overwrite/chapter` | AI 覆写：全书顺序改写，逐章调用 |
-| POST | `/api/v1/rewrite/generate` | 新版覆写工作台兼容接口，复用现有 AI 覆写流水线 |
-| POST | `/api/v1/ai/test` | 测试前端填写的 OpenAI 兼容模型连接 |
-| POST | `/api/generate` | 旧版：文学解读流水线（load→chunk→analyze→assemble→review→write） |
-| GET | `/api/works` | 旧版：列出已生成作品目录 |
-| GET | `/api/works/{work_id}` | 旧版：读取已生成作品内容 |
-
-交互式文档：`http://127.0.0.1:8000/docs`（Swagger UI）。
-
----
-
-## 前端说明
-
-- **数据主态**：浏览器 localStorage（`OW.Store`），后端是「尽力而为」的持久化副本——保存/删除 fire-and-forget，失败写入控制台且不回滚本地。
-- **用户标识**：`OW.Api.userId()` 返回 `OW.Store.get().reader`（读者署名），未署名时 `guest`；所有请求拼 `?user_id=`。
-- **后端地址**：`frontend/public/legacy/js/api.js` 的 `ORIGIN`（默认 `http://127.0.0.1:8000`）。
-- **导入**：新版前端在浏览器内解析 TXT 并立即保存到 localStorage，随后异步把结构化书籍同步到后端。
-- **分支铭文隔离**：内联标记与右侧铭文面板都按当前分支隔离——读原作只见原文铭文，读某分支只见该分支铭文。
-
----
-
-## 旧版文学解读（LangGraph 流水线）
-
-仓库保留了最初的「中短篇文学作品解读 Agent」：输入一篇 txt/md，经 LangGraph 流水线产出 **剧本摘要 / 人物信息（SillyTavern 角色卡）/ 世界书（World Info）**，落盘到 `works/<作品名>/`。入口为 `run.py`（CLI）与 `POST /api/generate`。当前主界面（书库/阅读器/覆写）不依赖它。
+如果你也曾在读完一个故事后想过“要是当时做了另一种选择呢”，欢迎打开《覆写》，从那个瞬间继续写下去。
